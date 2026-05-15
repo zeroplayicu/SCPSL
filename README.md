@@ -1,2 +1,3 @@
 # SCPSL
-SCPSL PLUGIN
+这是一个等级插件，我用AI写的，大部分时间不怎么会看GITHUB 所以更新有一点慢 请见谅
+等级插件问EXIDEL框架，支持linux和windows服务器妈妈再也不用担心我用不同系统开SCPSL服务器而插件的烦恼
