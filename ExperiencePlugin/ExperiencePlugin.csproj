@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>ExperiencePlugin</AssemblyName>
+    <RootNamespace>ExperiencePlugin</RootNamespace>
+    <Version>1.0.0</Version>
+    <Authors>Developer</Authors>
+    <Company>SCPServer</Company>
+    <Product>SCP Secret Laboratory Experience Plugin</Product>
+    <Description>Experience and Level System Plugin for SCP SL</Description>
+    <Copyright>Copyright 2026</Copyright>
+    <OutputType>Library</OutputType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <LangVersion>12.0</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- EXILED NuGet Package (统一包) -->
+    <PackageReference Include="ExMod.Exiled" Version="9.13.3" />
+    <!-- YAML 序列化/反序列化库 -->
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+  </ItemGroup>
+
+</Project>

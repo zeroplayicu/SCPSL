@@ -1,0 +1,66 @@
+{
+  "format": 1,
+  "restore": {
+    "Z:\\codebubby\\SCPSL pulint\\ExperiencePlugin\\ExperiencePlugin.csproj": {}
+  },
+  "projects": {
+    "Z:\\codebubby\\SCPSL pulint\\ExperiencePlugin\\ExperiencePlugin.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "Z:\\codebubby\\SCPSL pulint\\ExperiencePlugin\\ExperiencePlugin.csproj",
+        "projectName": "ExperiencePlugin",
+        "projectPath": "Z:\\codebubby\\SCPSL pulint\\ExperiencePlugin\\ExperiencePlugin.csproj",
+        "packagesPath": "C:\\Users\\Administrator\\.nuget\\packages\\",
+        "outputPath": "Z:\\codebubby\\SCPSL pulint\\ExperiencePlugin\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\Administrator\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net48"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net48": {
+            "targetAlias": "net48",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "net48": {
+          "targetAlias": "net48",
+          "dependencies": {
+            "ExMod.Exiled": {
+              "target": "Package",
+              "version": "[9.13.3, )"
+            },
+            "Microsoft.NETFramework.ReferenceAssemblies": {
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[1.0.3, )",
+              "autoReferenced": true
+            },
+            "YamlDotNet": {
+              "target": "Package",
+              "version": "[16.3.0, )"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.421\\RuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}
