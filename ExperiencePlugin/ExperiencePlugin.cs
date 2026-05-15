@@ -30,6 +30,8 @@ namespace ExperiencePlugin
             Exiled.Events.Handlers.Player.Dying += EventHandler.OnPlayerDying;
             Exiled.Events.Handlers.Player.Died += EventHandler.OnPlayerDied;
             Exiled.Events.Handlers.Player.Hurt += EventHandler.OnPlayerHurt;
+            Exiled.Events.Handlers.Player.Hurting += EventHandler.OnPlayerHurting;
+            Exiled.Events.Handlers.Player.DroppingItem += EventHandler.OnDroppingItem;
             Exiled.Events.Handlers.Player.ReloadingWeapon += EventHandler.OnReloadingWeapon;
             Exiled.Events.Handlers.Server.RoundStarted += EventHandler.OnRoundStarted;
             Exiled.Events.Handlers.Server.RoundEnded += EventHandler.OnRoundEnded;
@@ -43,7 +45,11 @@ namespace ExperiencePlugin
             }
 
             _damageTimer = new Timer(1000);
-            _damageTimer.Elapsed += (_, _) => EventHandler.CheckAndSettleDamage();
+            _damageTimer.Elapsed += (_, _) =>
+            {
+                EventHandler.CheckAndSettleDamage();
+                EventHandler.RegenerateShields();
+            };
             _damageTimer.AutoReset = true;
             _damageTimer.Start();
 
@@ -65,6 +71,8 @@ namespace ExperiencePlugin
             Exiled.Events.Handlers.Player.Dying -= EventHandler.OnPlayerDying;
             Exiled.Events.Handlers.Player.Died -= EventHandler.OnPlayerDied;
             Exiled.Events.Handlers.Player.Hurt -= EventHandler.OnPlayerHurt;
+            Exiled.Events.Handlers.Player.Hurting -= EventHandler.OnPlayerHurting;
+            Exiled.Events.Handlers.Player.DroppingItem -= EventHandler.OnDroppingItem;
             Exiled.Events.Handlers.Player.ReloadingWeapon -= EventHandler.OnReloadingWeapon;
             Exiled.Events.Handlers.Server.RoundStarted -= EventHandler.OnRoundStarted;
             Exiled.Events.Handlers.Server.RoundEnded -= EventHandler.OnRoundEnded;

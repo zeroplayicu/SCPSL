@@ -1,125 +1,155 @@
-# SCP秘密实验室插件开发 - 项目说明
+# SCP:SL 服务器插件合集
 
-> 🎮 欢迎学习SCP秘密实验室插件开发！
+适用于 **SCP: Secret Laboratory** 服务器的 Exiled 插件合集，包含经验等级、聊天系统、物品清理和指挥官护盾等功能。
 
-## 📁 项目结构
+## 📋 插件清单
 
-```
-SCPSL Plugin Project/
-├── 📄 README.md                    ← 本文件
-├── 📚 SCPSL_Plugin_Tutorial.md     ← 完整的插件开发教程
-├── 📋 Setup_Guide.md               ← 开发环境配置指南
-├── ⚡ QuickStart.ps1                ← 快速开始脚本
-├── 🔍 CheckEnvironment.ps1          ← 环境检查脚本
-│
-└── 📦 MyFirstPlugin/               ← 示例插件项目
-    ├── Plugin.cs                   ← 主插件类
-    ├── Config.cs                   ← 配置文件
-    ├── EventHandlers.cs            ← 事件处理类
-    ├── MyFirstPlugin.csproj        ← 项目配置文件
-    ├── MyFirstPlugin.sln           ← 解决方案文件
-    └── README.md                   ← 项目说明
-```
-
-## 🚀 快速开始
-
-### 1. 检查开发环境
-
-```powershell
-# 运行环境检查脚本
-.\CheckEnvironment.ps1
-```
-
-### 2. 安装 .NET SDK（如需要）
-
-参考 `Setup_Guide.md` 文档安装 .NET 8.0 SDK
-
-### 3. 编译示例插件
-
-```powershell
-# 进入项目目录
-cd MyFirstPlugin
-
-# 下载依赖包
-dotnet restore
-
-# 编译项目
-dotnet build
-```
-
-### 4. 部署插件
-
-将 `bin/Debug/net8.0/MyFirstPlugin.dll` 复制到服务器插件目录：
-- Windows: `%AppData%\EXILED\Plugins\`
-- Linux: `~/.config/EXILED/Plugins/`
-
-## 📚 学习路径
-
-### 入门阶段
-1. 阅读 `SCPSL_Plugin_Tutorial.md` 了解插件开发基础
-2. 阅读 `Setup_Guide.md` 配置开发环境
-3. 分析 `MyFirstPlugin` 示例项目代码
-4. 尝试修改示例代码并重新编译
-
-### 进阶阶段
-1. 学习EXILED事件系统
-2. 实现更复杂的功能
-3. 阅读优秀开源插件源码
-4. 参与社区交流
-
-## 🔗 相关资源
-
-- [EXILED 官方文档](https://exiled-team.github.io/)
-- [EXILED GitHub](https://github.com/Exiled-Team/EXILED)
-- [SCP秘密实验室论坛](https://scpslgame.com/)
-- [.NET 官方文档](https://docs.microsoft.com/dotnet/)
-
-## 📝 常用命令
-
-```powershell
-# 恢复依赖
-dotnet restore
-
-# 编译
-dotnet build
-
-# 发布Release版本
-dotnet publish -c Release
-
-# 清理编译输出
-dotnet clean
-
-# 运行测试
-dotnet test
-```
-
-## ⚠️ 注意事项
-
-1. **服务器路径**：确保SCP服务器路径不包含中文字符
-2. **EXILED版本**：确保插件版本与服务器EXILED版本匹配
-3. **.NET版本**：开发时使用 .NET 8.0 SDK
-4. **备份**：修改代码前先备份原文件
-
-## 💡 常见问题
-
-Q: 编译报错找不到Exiled.API？
-A: 运行 `dotnet restore` 下载NuGet包
-
-Q: 插件不生效？
-A: 检查配置文件中的 `is_enabled` 是否为 true
-
-Q: 如何调试？
-A: 启用配置中的 `DebugMode`，查看服务器日志
-
-## 🎯 下一步
-
-1. ✅ 阅读完整教程 `SCPSL_Plugin_Tutorial.md`
-2. ✅ 配置开发环境 `Setup_Guide.md`
-3. ✅ 编译并测试示例插件
-4. ✅ 开始编写自己的插件！
+| 插件 | 文件 | 说明 |
+|------|------|------|
+| **ExperiencePlugin** | `ExperiencePlugin.dll` | 经验等级 + 连杀 + 助攻 + KDA + 效果HUD |
+| **ChatPlugin** | `ChatPlugin.dll` | 全体聊天/团队聊天/效果查看/生涯数据 |
+| **CleanupPlugin** | `CleanupPlugin.dll` | 掉落物 + 尸体自动清理 |
+| **CommanderShieldPlugin** | 已合并入 ExperiencePlugin | NTF 指挥官量子护盾 |
 
 ---
 
-**祝你开发愉快！** 🎮
+## 🎮 ExperiencePlugin — 经验等级系统
 
-*最后更新：2026年5月15日*
+### 功能特性
+
+- **经验/等级系统** — 击杀、伤害、在线时长获得经验，自动升级
+- **SCP-207 等级加速** — 25/50/100 级获得 ×1/×2/×3 的 SCP-207 增幅（无害版）
+- **无限备弹** — 换弹自动补满（含霰弹枪），丢枪/死亡不清弹药
+- **击杀连杀** — 显示 `击杀玩家 x1` → `x2` → `x3`，死亡重置
+- **助攻系统** — 攻击 SCP ≥250 血队友击杀 → 助攻；攻击人类 ≥20 血队友击杀 → 助攻 + 5xp/血
+- **本局 KDA** — 底部状态栏实时显示 `击杀/死亡/助攻`
+- **效果常驻 HUD** — 自动显示当前活跃效果和剩余时间
+- **数据持久化** — 玩家数据保存至 YAML 文件
+- **NTF 指挥官护盾** — 指挥官获得 O-5 卡 + AHP 护盾（右下角蓝条）
+
+### 配置 (`%AppData%\EXILED\Configs\Plugins\exp\config.yml`)
+
+```yaml
+# 经验
+ExpPerKill: 100
+ExpPerDamage: 1
+BaseExpPerLevel: 100
+ExpPerMinute: 10
+
+# 无限备弹
+EnableInfiniteAmmo: true
+
+# SCP207
+Scp207NoDrain: true
+
+# 助攻
+ScpAssistThreshold: 250
+HumanAssistThreshold: 20
+HumanAssistExpPerDamage: 5
+
+# 界面
+ShowStatusAlways: true
+ShowActiveEffects: true
+StatusRefreshInterval: 3
+```
+
+---
+
+## 💬 ChatPlugin — 聊天系统
+
+### 命令列表
+
+| 命令 | 别名 | 说明 |
+|------|------|------|
+| `.bc <消息>` | `.broadcast`, `.all` | 全体聊天 — 所有玩家可见 |
+| `.c <消息>` | `.team`, `.t` | 团队聊天 — 仅同阵营可见 |
+| `.buff` | `.effects`, `.e` | 查看当前活跃效果和剩余时间 |
+| `.info` | `.career`, `.stats` | 查看生涯数据（KD、游玩时长等） |
+
+### 配置 (`%AppData%\EXILED\Configs\Plugins\chat\config.yml`)
+
+```yaml
+BcDuration: 5          # 全体消息显示秒数
+CDuration: 5           # 团队消息显示秒数
+BcPrefix: "<color=#FFD700>[全体]</color>"
+CPrefix: "<color=#00BFFF>[团队]</color>"
+FontSize: "18"
+LogChat: true
+```
+
+---
+
+## 🧹 CleanupPlugin — 掉落物清理
+
+### 功能
+
+- 每 10 秒检测掉落物数量
+- ≥250 个时触发倒计时公告 + 自动清理
+- 同时清理尸体（Ragdoll）
+- SCP 物品白名单保护
+
+### 配置 (`%AppData%\EXILED\Configs\Plugins\cleanup\config.yml`)
+
+```yaml
+CleanupThreshold: 250
+CheckInterval: 10
+CountdownSeconds: 5
+CleanRagdolls: true
+ProtectedItemTypes: "SCP500,SCP207,SCP268,SCP1853,SCP127,SCP1344,SCP330"
+```
+
+---
+
+## 🛡️ NTF 指挥官量子护盾（合并入 ExperiencePlugin）
+
+### 功能
+
+- NTF 指挥官（九尾狐队长）自动获得量子护盾
+- 指挥官卡替换为 **O-5 权限卡**
+- 护盾吸收伤害（AHP 优先，HS 次级）
+- 每秒自动再生 1 点
+- 右下角显示蓝色护盾条
+
+### 配置 (`exp/config.yml`)
+
+```yaml
+EnableCommanderShield: true
+CommanderMaxAHP: 50
+CommanderMaxHS: 100
+ReplaceCommanderCard: true
+ShieldRegenPerTick: 1
+```
+
+---
+
+## 📥 部署
+
+1. 将 `zeropl/` 目录下的所有 `.dll` 复制到 `%AppData%\EXILED\Plugins\`
+2. 重启服务器
+3. 插件会自动生成默认配置文件在 `%AppData%\EXILED\Configs\Plugins\` 下
+
+## 🛠️ 编译
+
+需要 [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)。
+
+```powershell
+# 编译单个插件
+cd ExperiencePlugin
+dotnet build -c Release
+
+# 编译全部
+.\一键备份.bat
+```
+
+## 📦 技术栈
+
+| 项目 | 版本 |
+|------|------|
+| 框架 | [Exiled](https://github.com/Exiled-Team/EXILED) 9.13.3 |
+| 目标 | .NET Framework 4.8 |
+| 语言 | C# 12.0 |
+| 数据存储 | YAML (YamlDotNet) |
+
+## 📄 协议
+
+本项目采用 MIT 许可证。

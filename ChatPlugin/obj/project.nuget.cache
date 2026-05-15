@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "dgSpecHash": "REznnCcJAi8=",
+  "success": true,
+  "projectFilePath": "Z:\\codebubby\\SCPSL pulint\\ChatPlugin\\ChatPlugin.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Administrator\\.nuget\\packages\\exmod.exiled\\9.13.3\\exmod.exiled.9.13.3.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\microsoft.netframework.referenceassemblies\\1.0.3\\microsoft.netframework.referenceassemblies.1.0.3.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\microsoft.netframework.referenceassemblies.net48\\1.0.3\\microsoft.netframework.referenceassemblies.net48.1.0.3.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\yamldotnet\\16.3.0\\yamldotnet.16.3.0.nupkg.sha512"
+  ],
+  "logs": []
+}
