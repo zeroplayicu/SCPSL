@@ -1,0 +1,19 @@
+# Build
+bin/
+obj/
+*.dll
+*.pdb
+*.exe
+*.zip
+
+# IDE
+.vs/
+*.suo
+*.user
+*.sln.docstates
+
+# Temp
+C:\buildtmp2\
+
+# System
+Thumbs.db

@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>MyFirstPlugin</AssemblyName>
+    <RootNamespace>MyFirstPlugin</RootNamespace>
+    <Version>1.0.0</Version>
+    <Authors>Developer</Authors>
+    <Company>MyCompany</Company>
+    <Product>SCP Secret Laboratory Plugin</Product>
+    <Description>我的第一个SCP秘密实验室插件示例</Description>
+    <Copyright>Copyright © 2026</Copyright>
+    
+    <!-- 允许不安全代码（某些EXILED功能可能需要） -->
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    
+    <!-- 输出类型为库 -->
+    <OutputType>Library</OutputType>
+    
+    <!-- 配置类型：Release或Debug -->
+    <Configuration>Release</Configuration>
+    
+    <!-- 平台目标 -->
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    
+    <!-- 生成文档文件 -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    
+    <!-- 自动版本管理 -->
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- EXILED NuGet包 - 插件开发的核心依赖 -->
+    <!-- 
+      注意：确保版本号与您的SCP服务器上的EXILED版本匹配
+      当前推荐版本：5.3.3
+    -->
+    <PackageReference Include="Exiled.API" Version="5.3.3" />
+    <PackageReference Include="Exiled.Events" Version="5.3.3" />
+    <PackageReference Include="Exiled.Loader" Version="5.3.3" />
+  </ItemGroup>
+
+  <!-- 条件编译符号 -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <Optimize>false</Optimize>
+    <DebugType>full</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DefineConstants>RELEASE;TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+  </PropertyGroup>
+
+</Project>
