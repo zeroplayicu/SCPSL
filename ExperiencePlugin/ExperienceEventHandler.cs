@@ -3,17 +3,14 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
-using LabApi.Events.Arguments.PlayerEvents;
-using LabApi.Events.Arguments.ServerEvents;
-using LabApi.Events.CustomHandlers;
-using LabApi.Events.Handlers;
-using LabApi.Features.Console;
-using LabApi.Features.Wrappers;
+using Exiled.API.Features;
+using Exiled.Events.EventArgs.Player;
+using Exiled.Events.EventArgs.Server;
 using PlayerRoles;
 
 namespace ExperiencePlugin
 {
-    public class ExperienceEventHandler : CustomEventsHandler
+    public class ExperienceEventHandler
     {
         private readonly ExperiencePlugin _plugin;
         public readonly Dictionary<string, CombatData> CombatDataCache = new Dictionary<string, CombatData>();
@@ -24,34 +21,22 @@ namespace ExperiencePlugin
         private readonly Dictionary<string, int> _roundDeaths = new Dictionary<string, int>();
         private readonly Dictionary<string, int> _roundAssists = new Dictionary<string, int>();
 
-        // ===== 助攻伤害追踪: key=受害者UserId, value={攻击者UserId -> 总伤害}
+        // ===== 助攻伤害追踪 =====
         private readonly Dictionary<string, Dictionary<string, int>> _assistDamage = new Dictionary<string, Dictionary<string, int>>();
 
         public ExperienceEventHandler(ExperiencePlugin plugin) { _plugin = plugin; }
 
-        public void RegisterRoundEvents()
-        {
-            LabApi.Events.Handlers.ServerEvents.RoundStarted += OnRoundStarted;
-            LabApi.Events.Handlers.ServerEvents.RoundEnded += OnRoundEnded;
-        }
-
-        public void UnregisterRoundEvents()
-        {
-            LabApi.Events.Handlers.ServerEvents.RoundStarted -= OnRoundStarted;
-            LabApi.Events.Handlers.ServerEvents.RoundEnded -= OnRoundEnded;
-        }
-
         // ==================== 玩家加入 ====================
 
-        public override void OnPlayerJoined(PlayerJoinedEventArgs ev)
+        public void OnVerified(VerifiedEventArgs ev)
         {
             try { _plugin.DataManager.GetOrCreatePlayerData(ev.Player); }
-            catch (Exception ex) { Logger.Error($"加入: {ex.Message}"); }
+            catch (Exception ex) { Log.Error($"加入: {ex.Message}"); }
         }
 
         // ==================== 角色生成 - 发放等级buff ====================
 
-        public override void OnPlayerSpawned(PlayerSpawnedEventArgs ev)
+        public void OnSpawned(SpawnedEventArgs ev)
         {
             try
             {
@@ -62,12 +47,12 @@ namespace ExperiencePlugin
 
                 int level = data.Level;
 
-                if (player.IsSCP)
+                if (player.IsScp)
                     ApplyScpBuff(player, level);
                 else
                     ApplyHumanBuff(player, level);
             }
-            catch (Exception ex) { Logger.Error($"生成buff: {ex.Message}"); }
+            catch (Exception ex) { Log.Error($"生成buff: {ex.Message}"); }
         }
 
         private void ApplyScpBuff(Player player, int level)
@@ -80,7 +65,7 @@ namespace ExperiencePlugin
             if (boost > 0)
             {
                 ApplyScp207Effect(player, boost);
-                Logger.Info($"[Buff] {player.Nickname} 等级{level} → SCP207×{boost}");
+                Log.Info($"[Buff] {player.Nickname} 等级{level} → SCP207×{boost}");
             }
         }
 
@@ -100,7 +85,7 @@ namespace ExperiencePlugin
 
         private void ApplyHumanBuff(Player player, int level)
         {
-            var role = player.Role;
+            var role = player.Role.Type;
             int boost = 0;
 
             if (role == RoleTypeId.ClassD)
@@ -134,52 +119,50 @@ namespace ExperiencePlugin
             if (boost > 0)
             {
                 ApplyScp207Effect(player, boost);
-                Logger.Info($"[Buff] {player.Nickname} 等级{level} → SCP207×{boost}");
+                Log.Info($"[Buff] {player.Nickname} 等级{level} → SCP207×{boost}");
             }
         }
 
         // ==================== 死亡不掉弹药 + 清空枪膛 ====================
 
-        public override void OnPlayerDying(PlayerDyingEventArgs ev)
+        public void OnDying(DyingEventArgs ev)
         {
             try
             {
-                // 清空备弹
+                // 清空备弹（访问游戏原生Inventory）
                 foreach (var ammoType in ev.Player.Ammo.Keys.ToList())
-                    ev.Player.SetAmmo(ammoType, 0);
-                // 清空当前武器的枪膛子弹
+                {
+                    try
+                    {
+                        ev.Player.ReferenceHub.inventory.UserInventory.ReserveAmmo[ammoType] = 0;
+                    }
+                    catch { }
+                }
                 UnloadAllFirearms(ev.Player);
             }
-            catch (Exception ex) { Logger.Error($"Dying: {ex.Message}"); }
+            catch (Exception ex) { Log.Error($"Dying: {ex.Message}"); }
         }
 
-        /// <summary>
-        /// 通过反射清空玩家所有枪支的枪膛子弹，防止掉落迸射子弹
-        /// </summary>
         private static void UnloadAllFirearms(Player player)
         {
             try
             {
                 foreach (var item in player.Items)
                 {
-                    // 只处理枪支
                     string itemName = item.Type.ToString();
                     if (!itemName.Contains("Gun") && !itemName.Contains("Micro") && !itemName.Contains("Disruptor"))
                         continue;
 
-                    // 获取该物品的 Base 对象（ItemBase）
                     var baseProp = item.GetType().GetProperty("Base");
                     if (baseProp == null) continue;
                     var itemBase = baseProp.GetValue(item);
                     if (itemBase == null) continue;
 
-                    // 尝试获取 Status 属性中的 Ammo（枪支已上膛子弹数）
                     var statusProp = itemBase.GetType().GetProperty("Status");
                     if (statusProp == null) continue;
                     var status = statusProp.GetValue(itemBase);
                     if (status == null) continue;
 
-                    // FirearmStatus 结构体有 Ammo 字段
                     var ammoField = status.GetType().GetField("Ammo");
                     if (ammoField == null) continue;
                     ammoField.SetValue(status, (byte)0);
@@ -191,60 +174,105 @@ namespace ExperiencePlugin
 
         // ==================== 清理子弹掉落物 ====================
 
-        /// <summary>
-        /// 扫描并销毁所有子弹类型的掉落物（防止死亡迸射满地子弹）
-        /// </summary>
         private static void DestroyAmmoPickups()
         {
             try
             {
-                var pickupType = Type.GetType("LabApi.Features.Wrappers.Pickups.Pickup, LabApi");
-                if (pickupType == null) return;
-
-                var listProp = pickupType.GetProperty("List");
-                if (listProp == null) return;
-
-                var list = listProp.GetValue(null) as System.Collections.IEnumerable;
-                if (list == null) return;
-
-                var typeProp = pickupType.GetProperty("Type");
-                var destroyMethod = pickupType.GetMethod("Destroy");
-                if (typeProp == null || destroyMethod == null) return;
-
-                int removed = 0;
-                foreach (var pickup in list)
+                foreach (var pickup in Exiled.API.Features.Pickups.Pickup.List.ToList())
                 {
-                    if (pickup == null) continue;
-                    var itemType = (ItemType)typeProp.GetValue(pickup);
-
-                    // 只清理子弹类
-                    string tName = itemType.ToString();
+                    if (pickup == null || !pickup.IsSpawned) continue;
+                    string tName = pickup.Type.ToString();
                     if (tName.IndexOf("Ammo", StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        destroyMethod.Invoke(pickup, null);
-                        removed++;
-                    }
+                        pickup.Destroy();
                 }
-                if (removed > 0)
-                    Logger.Debug($"[清理] 销毁 {removed} 个子弹掉落物");
             }
-            catch (Exception ex) { Logger.Error($"清理子弹错误: {ex.Message}"); }
+            catch (Exception ex) { Log.Error($"清理子弹错误: {ex.Message}"); }
         }
 
-        // ==================== 伤害处理（经验累积 + 助攻追踪） ====================
+        // ==================== 击杀信息辅助方法 ====================
 
-        public override void OnPlayerHurt(PlayerHurtEventArgs ev)
+        private static string GetWeaponDisplayName(object damageHandler)
+        {
+            try
+            {
+                string typeName = damageHandler.GetType().Name;
+                if (typeName.IndexOf("Firearm", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    var weaponProp = damageHandler.GetType().GetProperty("WeaponType");
+                    if (weaponProp != null)
+                    {
+                        var weaponType = weaponProp.GetValue(damageHandler);
+                        if (weaponType != null)
+                            return GetShortWeaponName(weaponType.ToString());
+                    }
+                }
+                if (typeName.IndexOf("Revolver", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return "左轮";
+                if (typeName.IndexOf("MicroHid", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return "MicroHID";
+                if (typeName.IndexOf("Scp018", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return "SCP-018";
+                if (typeName.IndexOf("Scp207", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return "SCP-207";
+                if (typeName.IndexOf("FriendlyFire", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return "友伤";
+                if (typeName.IndexOf("Custom", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return "未知";
+                if (typeName.IndexOf("Explosion", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return "爆炸";
+                if (typeName.IndexOf("Tesla", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return "特斯拉";
+                if (typeName.IndexOf("Recontain", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return "收容";
+                return "击杀";
+            }
+            catch { return ""; }
+        }
+
+        private static string GetShortWeaponName(string weaponType)
+        {
+            return weaponType switch
+            {
+                "GunE11SR" => "E-11 SR", "GunFRMG0" => "FR-MG-0", "GunAK" => "AK",
+                "GunLogicer" => "Logicer", "GunCOM15" => "COM15", "GunCOM18" => "COM18",
+                "GunCrossvec" => "Crossvec", "GunRevolver" => "左轮", "GunShotgun" => "霰弹",
+                "GunFSP9" => "FSP9", "GunSCP127" => "SCP-127", "MicroHID" => "MicroHID",
+                _ => weaponType.Replace("Gun", "")
+            };
+        }
+
+        private static string GetSpecialKillTag(object damageHandler, Player attacker)
+        {
+            try
+            {
+                string typeName = damageHandler.GetType().Name;
+                if (typeName.IndexOf("Headshot", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    typeName.IndexOf("Head", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return "<color=#FFD700>🎯</color> ";
+
+                try
+                {
+                    var isHeadshot = damageHandler.GetType().GetProperty("IsHeadshot");
+                    if (isHeadshot != null && (bool)isHeadshot.GetValue(damageHandler))
+                        return "<color=#FFD700>🎯</color> ";
+                }
+                catch { }
+
+                return "";
+            }
+            catch { return ""; }
+        }
+
+        // ==================== 伤害处理 ====================
+
+        public void OnHurt(HurtEventArgs ev)
         {
             try
             {
                 if (ev.Attacker == null || ev.Player == null) return;
                 if (ev.Attacker == ev.Player) return;
 
-                // 通过反射获取伤害值（公共程序集可能属性名不同）
-                float amount = 0f;
-                var dmgProp = ev.DamageHandler.GetType().GetProperty("Damage");
-                if (dmgProp != null)
-                    amount = (float)dmgProp.GetValue(ev.DamageHandler);
+                float amount = ev.Amount;
                 if (amount <= 0) return;
 
                 int damage = (int)Math.Round(amount, MidpointRounding.AwayFromZero);
@@ -277,8 +305,8 @@ namespace ExperiencePlugin
                     prevDamage = 0;
                 attackerDict[attackerId] = prevDamage + damage;
 
-                // === 3. 组伤检测（显示在攻击经验上） ===
-                if (ev.Attacker.Faction == ev.Player.Faction && !ev.Player.IsSCP)
+                // === 3. 组伤检测 ===
+                if (ev.Attacker.Role.Team == ev.Player.Role.Team && !ev.Player.IsScp)
                 {
                     if (!CombatDataCache.TryGetValue(attackerId, out CombatData cdPenalty))
                     {
@@ -290,59 +318,41 @@ namespace ExperiencePlugin
                 }
 
                 if (_plugin.Config.Debug)
-                    Logger.Debug($"[伤害] {ev.Attacker.Nickname}: {damage} (累积XP: {cd.DisplayDamageXp})");
+                    Log.Debug($"[伤害] {ev.Attacker.Nickname}: {damage} (累积XP: {cd.DisplayDamageXp})");
             }
-            catch (Exception ex) { Logger.Error($"伤害事件: {ex.Message}"); }
+            catch (Exception ex) { Log.Error($"伤害事件: {ex.Message}"); }
         }
 
-        // ==================== SCP207 无伤（多层检测） ====================
+        // ==================== SCP207 无伤 ====================
 
-        public override void OnPlayerHurting(PlayerHurtingEventArgs ev)
+        public void OnHurting(HurtingEventArgs ev)
         {
             try
             {
                 if (ev.Player == null) return;
 
-                // SCP207 无伤害 - 通过多种方式检测
                 bool isScp207 = false;
                 string typeName = ev.DamageHandler.GetType().Name;
                 string fullName = ev.DamageHandler.GetType().FullName;
 
-                // 方法1: 类型名包含 Scp207
                 if (typeName.IndexOf("Scp207", StringComparison.OrdinalIgnoreCase) >= 0 ||
                     fullName.IndexOf("Scp207", StringComparison.OrdinalIgnoreCase) >= 0)
                     isScp207 = true;
 
-                // 方法2: 类型名包含 207
                 if (!isScp207 && typeName.IndexOf("207", StringComparison.OrdinalIgnoreCase) >= 0)
                     isScp207 = true;
 
-                // 方法3: 检查 DamageHandler 是否是 Scp207DamageHandler 的实例
                 if (!isScp207)
                 {
                     try
                     {
-                        var scp207Type = Type.GetType("CustomPlayerEffects.Scp207, Assembly-CSharp");
-                        if (scp207Type != null)
+                        foreach (var effect in ev.Player.ActiveEffects)
                         {
-                            // 检查玩家是否有活跃的Scp207效果
-                            var refHub = ev.Player.GetType().GetProperty("ReferenceHub")?.GetValue(ev.Player);
-                            var fxCtrl = refHub?.GetType().GetProperty("playerEffectsController")?.GetValue(refHub);
-                            var allFx = fxCtrl?.GetType().GetProperty("AllEffects")?.GetValue(fxCtrl) as System.Collections.IEnumerable;
-                            if (allFx != null)
+                            if (effect != null && effect.IsEnabled &&
+                                effect.GetType().Name.IndexOf("Scp207", StringComparison.OrdinalIgnoreCase) >= 0)
                             {
-                                foreach (var fx in allFx)
-                                {
-                                    if (fx != null && fx.GetType().Name.IndexOf("Scp207", StringComparison.OrdinalIgnoreCase) >= 0)
-                                    {
-                                        var isEnabled = fx.GetType().GetProperty("IsEnabled")?.GetValue(fx);
-                                        if (isEnabled is bool enabled && enabled)
-                                        {
-                                            isScp207 = true;
-                                            break;
-                                        }
-                                    }
-                                }
+                                isScp207 = true;
+                                break;
                             }
                         }
                     }
@@ -353,47 +363,36 @@ namespace ExperiencePlugin
                 {
                     ev.IsAllowed = false;
                     if (_plugin.Config.Debug)
-                        Logger.Debug($"[SCP207] 检测到类型:{typeName} → 已拦截");
+                        Log.Debug($"[SCP207] 检测到类型:{typeName} → 已拦截");
                 }
             }
-            catch (Exception ex) { Logger.Error($"Hurting处理: {ex.Message}"); }
+            catch (Exception ex) { Log.Error($"Hurting处理: {ex.Message}"); }
         }
 
-        // ==================== 无限备弹（自动适配所有枪械） ====================
+        // ==================== 无限备弹 ====================
 
-        /// <summary>
-        /// 根据武器名称推断使用的弹药类型（字符串匹配，适配任何版本）
-        /// </summary>
         private static ItemType GetAmmoTypeForWeapon(string weaponName)
         {
-            // 5.56mm: MTF步枪/冲锋枪/机枪
             if (weaponName.IndexOf("E11", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 weaponName.IndexOf("FRMG", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 weaponName.IndexOf("FSP", StringComparison.OrdinalIgnoreCase) >= 0)
                 return ItemType.Ammo556x45;
 
-            // 7.62mm: 混沌步枪/机枪
             if (weaponName.IndexOf("AK", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 weaponName.IndexOf("Logicer", StringComparison.OrdinalIgnoreCase) >= 0)
                 return ItemType.Ammo762x39;
 
-            // 9mm: 手枪/冲锋枪/左轮
             if (weaponName.IndexOf("COM", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 weaponName.IndexOf("Crossvec", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                weaponName.IndexOf("Revolver", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                weaponName.IndexOf("FSP", StringComparison.OrdinalIgnoreCase) >= 0)
+                weaponName.IndexOf("Revolver", StringComparison.OrdinalIgnoreCase) >= 0)
                 return ItemType.Ammo9x19;
 
-            // 12号口径: 霰弹枪
             if (weaponName.IndexOf("Shotgun", StringComparison.OrdinalIgnoreCase) >= 0)
-                return ItemType.Ammo9x19; // 老旧DLL无Ammo12Gauge，用9mm代替
+                return ItemType.Ammo9x19;
 
             return ItemType.None;
         }
 
-        /// <summary>
-        /// 获取枪械最大弹容量（通过反射尝试多种方式）
-        /// </summary>
         private static int GetFirearmMaxAmmo(object firearmItem)
         {
             try
@@ -403,12 +402,10 @@ namespace ExperiencePlugin
                 var firearmBase = baseProp.GetValue(firearmItem);
                 if (firearmBase == null) return 30;
 
-                // 1. 尝试 GetMaxAmmo() 方法
                 var getMaxMethod = firearmBase.GetType().GetMethod("GetMaxAmmo", Type.EmptyTypes);
                 if (getMaxMethod != null)
                     return (int)getMaxMethod.Invoke(firearmBase, null);
 
-                // 2. 尝试 Status.MaxAmmo 属性
                 var statusProp = firearmBase.GetType().GetProperty("Status");
                 if (statusProp != null)
                 {
@@ -421,7 +418,6 @@ namespace ExperiencePlugin
                     }
                 }
 
-                // 3. 尝试 MaxAmmo 直接属性
                 var maxAmmoProp = firearmBase.GetType().GetProperty("MaxAmmo");
                 if (maxAmmoProp != null)
                     return (int)maxAmmoProp.GetValue(firearmBase);
@@ -430,77 +426,74 @@ namespace ExperiencePlugin
             return 30;
         }
 
-        public override void OnPlayerReloadingWeapon(PlayerReloadingWeaponEventArgs ev)
+        public void OnReloadingWeapon(ReloadingWeaponEventArgs ev)
         {
             try
             {
                 if (!_plugin.Config.EnableInfiniteAmmo) return;
 
-                var firearmItem = ev.GetType().GetProperty("FirearmItem")?.GetValue(ev);
-                if (firearmItem == null) return;
+                var firearm = ev.Firearm;
+                if (firearm == null) return;
 
                 ItemType ammoType = ItemType.None;
 
-                // 方法1：直接从FirearmItem获取AmmoType属性
-                var ammoProp = firearmItem.GetType().GetProperty("AmmoType");
-                if (ammoProp != null)
-                    ammoType = (ItemType)ammoProp.GetValue(firearmItem);
+                // 方法1：从Firearm获取AmmoType
+                try
+                {
+                    var ammoProp = firearm.GetType().GetProperty("AmmoType");
+                    if (ammoProp != null)
+                        ammoType = (ItemType)ammoProp.GetValue(firearm);
+                }
+                catch { }
 
                 // 方法2：通过武器类型名称推断
                 if (ammoType == ItemType.None)
                 {
-                    var typeProp = firearmItem.GetType().GetProperty("Type");
+                    var typeProp = firearm.GetType().GetProperty("Type");
                     if (typeProp != null)
                     {
-                        var weaponType = (ItemType)typeProp.GetValue(firearmItem);
+                        var weaponType = (ItemType)typeProp.GetValue(firearm);
                         ammoType = GetAmmoTypeForWeapon(weaponType.ToString());
                     }
                 }
 
-                // 方法3：遍历玩家弹药类型，全都设为最大+1（保底方案）
+                // 方法3：保底方案 - 所有弹药设为999
                 if (ammoType == ItemType.None)
                 {
                     foreach (var at in ev.Player.Ammo.Keys.ToList())
-                        ev.Player.SetAmmo(at, 999);
+                        ev.Player.ReferenceHub.inventory.UserInventory.ReserveAmmo[at] = 999;
                     return;
                 }
 
-                // 获取最大弹容量，备弹设为最大+1
-                int maxAmmo = GetFirearmMaxAmmo(firearmItem);
-                ev.Player.SetAmmo(ammoType, (ushort)(maxAmmo + 1));
+                int maxAmmo = GetFirearmMaxAmmo(firearm);
+                ev.Player.ReferenceHub.inventory.UserInventory.ReserveAmmo[ammoType] = (ushort)(maxAmmo + 1);
 
                 if (_plugin.Config.Debug)
-                    Logger.Debug($"[备弹] {ev.Player.Nickname} {ammoType} → {maxAmmo + 1}");
+                    Log.Debug($"[备弹] {ev.Player.Nickname} {ammoType} → {maxAmmo + 1}");
             }
-            catch (Exception ex) { Logger.Error($"换弹: {ex.Message}"); }
+            catch (Exception ex) { Log.Error($"换弹: {ex.Message}"); }
         }
 
-        // ==================== 丢枪清零弹药 + 清空枪膛（防止迸射子弹） ====================
+        // ==================== 丢枪清零弹药 ====================
 
-        public override void OnPlayerDroppingItem(PlayerDroppingItemEventArgs ev)
+        public void OnDroppingItem(DroppingItemEventArgs ev)
         {
             try
             {
                 if (!_plugin.Config.EnableInfiniteAmmo) return;
 
-                // 只处理枪支类物品
                 string itemName = ev.Item.Type.ToString();
                 if (!itemName.Contains("Gun") && !itemName.Contains("Micro") && !itemName.Contains("Disruptor"))
                     return;
 
-                // 清空目标枪支的枪膛
                 UnloadSpecificFirearm(ev.Player, ev.Item);
-                // 清空备弹
                 foreach (var ammoType in ev.Player.Ammo.Keys.ToList())
-                    ev.Player.SetAmmo(ammoType, 0);
+                    ev.Player.ReferenceHub.inventory.UserInventory.ReserveAmmo[ammoType] = 0;
             }
-            catch (Exception ex) { Logger.Error($"丢枪: {ex.Message}"); }
+            catch (Exception ex) { Log.Error($"丢枪: {ex.Message}"); }
         }
 
-        /// <summary>
-        /// 清空指定物品（枪支）的枪膛子弹
-        /// </summary>
-        private static void UnloadSpecificFirearm(Player player, Item item)
+        private static void UnloadSpecificFirearm(Player player, Exiled.API.Features.Items.Item item)
         {
             try
             {
@@ -524,20 +517,18 @@ namespace ExperiencePlugin
 
         // ==================== 击杀事件 + 助攻结算 ====================
 
-        public override void OnPlayerDeath(PlayerDeathEventArgs ev)
+        public void OnDied(DiedEventArgs ev)
         {
             try
             {
-                string victimId = ev.Player.UserId;
+                string victimId = ev.Target.UserId;
                 _plugin.DataManager.AddDeath(victimId);
                 AddRoundDeath(victimId);
 
-                // 重置受害者连杀数
                 if (CombatDataCache.TryGetValue(victimId, out CombatData victimCd))
                     victimCd.KillStreak = 0;
 
-                // --- 攻击者击杀处理 ---
-                if (ev.Attacker != null && ev.Attacker != ev.Player)
+                if (ev.Attacker != null && ev.Attacker != ev.Target)
                 {
                     string killerId = ev.Attacker.UserId;
                     int killExp = _plugin.Config.ExpPerKill;
@@ -560,35 +551,47 @@ namespace ExperiencePlugin
                         var data = _plugin.DataManager.GetPlayerData(killerId);
                         string lvlMsg = "\n\n<size=28><color=lime>升级！{level}</color></size>"
                             .Replace("{level}", _plugin.Config.LevelPrefix + data.Level);
-                        ev.Attacker.SendHint(GetFullHint(killerId) + lvlMsg, (ushort)(_plugin.Config.StatusRefreshInterval + 2));
+                        ev.Attacker.ShowHint(lvlMsg, 4);
                     }
                 }
 
-                // --- 助攻结算 ---
                 ProcessAssists(ev);
 
-                // --- 组杀反馈 ---
-                if (ev.Attacker != null && ev.Attacker != ev.Player &&
-                    ev.Attacker.Faction == ev.Player.Faction && !ev.Player.IsSCP)
+                if (ev.Attacker != null && ev.Attacker != ev.Target)
                 {
-                    string xpMsg = $"\n\n\n\n\n\n\n\n\n\n\n<size=26><color=#FF4444>击杀队友 -200xp</color></size>";
-                    ev.Attacker.SendHint(xpMsg, 4);
+                    try
+                    {
+                        string weaponName = GetWeaponDisplayName(ev.DamageHandler);
+                        string specialTag = GetSpecialKillTag(ev.DamageHandler, ev.Attacker);
+                        string killMsg = $"<size=20><color=#FFD700>{ev.Attacker.DisplayName}</color>" +
+                            $"<color=white> {specialTag}🔫 </color>" +
+                            $"<color=#FF4444>{ev.Target.DisplayName}</color></size>";
+                        foreach (var p in Player.List.Where(x => x != null && !x.IsNpc))
+                            p.ShowHint(killMsg, 3);
+                    }
+                    catch { }
                 }
 
-                // --- 清理玩家死亡掉落的子弹拾取物 ---
+                if (ev.Attacker != null && ev.Attacker != ev.Target &&
+                    ev.Attacker.Role.Team == ev.Target.Role.Team && !ev.Target.IsScp)
+                {
+                    string xpMsg = $"\n\n\n\n\n\n\n\n\n\n\n<size=26><color=#FF4444>击杀队友 -200xp</color></size>";
+                    ev.Attacker.ShowHint(xpMsg, 4);
+                }
+
                 DestroyAmmoPickups();
             }
-            catch (Exception ex) { Logger.Error($"死亡: {ex.Message}"); }
+            catch (Exception ex) { Log.Error($"死亡: {ex.Message}"); }
         }
 
-        private void ProcessAssists(PlayerDeathEventArgs ev)
+        private void ProcessAssists(DiedEventArgs ev)
         {
-            string victimId = ev.Player.UserId;
+            string victimId = ev.Target.UserId;
 
             if (!_assistDamage.TryGetValue(victimId, out var attackerDict)) return;
 
-            bool victimIsScp = ev.Player.IsSCP;
-            string killerId = (ev.Attacker != null && ev.Attacker != ev.Player) ? ev.Attacker.UserId : null;
+            bool victimIsScp = ev.Target.IsScp;
+            string killerId = (ev.Attacker != null && ev.Attacker != ev.Target) ? ev.Attacker.UserId : null;
 
             foreach (var kvp in attackerDict)
             {
@@ -625,7 +628,7 @@ namespace ExperiencePlugin
                         {
                             bool leveledUp = _plugin.DataManager.AddExperience(assister, assistExp);
                             if (_plugin.Config.Debug)
-                                Logger.Debug($"[助攻] {assister.Nickname}: 助攻{damageDealt}伤害 → +{assistExp}xp" +
+                                Log.Debug($"[助攻] {assister.Nickname}: 助攻{damageDealt}伤害 → +{assistExp}xp" +
                                     (leveledUp ? " (升级!)" : ""));
                         }
                     }
@@ -685,7 +688,7 @@ namespace ExperiencePlugin
                 }
                 foreach (var id in toRemove) CombatDataCache.Remove(id);
             }
-            catch (Exception ex) { Logger.Error($"结算检查: {ex.Message}"); }
+            catch (Exception ex) { Log.Error($"结算检查: {ex.Message}"); }
         }
 
         private void SettleDamageExp(string userId, CombatData cd)
@@ -707,9 +710,9 @@ namespace ExperiencePlugin
                     hint += "\n<size=26><color=lime>升级！{level}</color></size>"
                         .Replace("{level}", _plugin.Config.LevelPrefix + data.Level);
                 hint += status;
-                player.SendHint(hint, 5);
+                player.ShowHint(hint, 5);
             }
-            catch (Exception ex) { Logger.Error($"结算: {ex.Message}"); }
+            catch (Exception ex) { Log.Error($"结算: {ex.Message}"); }
         }
 
         // ==================== 面板刷新 ====================
@@ -719,21 +722,24 @@ namespace ExperiencePlugin
             try
             {
                 if (!_plugin.Config.ShowStatusAlways) return;
-                foreach (var player in Player.List.Where(p => p != null))
+                foreach (var player in Player.List.Where(p => p != null && !p.IsNpc && !string.IsNullOrEmpty(p.UserId)))
                     RefreshPlayerPanel(player);
             }
-            catch (Exception ex) { Logger.Error($"批量刷新: {ex.Message}"); }
+            catch (Exception ex) { Log.Error($"批量刷新: {ex.Message}"); }
         }
 
         private void RefreshPlayerPanel(Player player)
         {
             try
             {
+                if (player == null || string.IsNullOrEmpty(player.UserId)) return;
                 var data = _plugin.DataManager.GetPlayerData(player.UserId);
                 if (data == null) return;
-                player.SendHint(GetFullHint(player.UserId), (ushort)(_plugin.Config.StatusRefreshInterval + 2));
+                string hint = GetFullHint(player.UserId);
+                player.ClearBroadcasts();
+                player.Broadcast((ushort)(_plugin.Config.StatusRefreshInterval + 2), hint, Broadcast.BroadcastFlags.Normal);
             }
-            catch (Exception ex) { Logger.Error($"刷新面板: {ex.Message}"); }
+            catch (Exception ex) { Log.Error($"刷新面板: {ex.Message}"); }
         }
 
         private string GetFullHint(string userId)
@@ -743,17 +749,14 @@ namespace ExperiencePlugin
 
             var parts = new List<string>();
 
-            // 战斗反馈（伤害/击杀提示）
             string feed = BuildCombatFeed(userId);
             if (!string.IsNullOrEmpty(feed))
                 parts.Add(feed);
 
-            // 效果常驻显示
             string effects = BuildEffectsDisplay(userId);
             if (!string.IsNullOrEmpty(effects))
                 parts.Add(effects);
 
-            // 底部状态栏（经验 + KDA）
             string status = FormatStatusLine(data, userId);
             parts.Add(status);
 
@@ -771,40 +774,20 @@ namespace ExperiencePlugin
                 var player = Player.List.FirstOrDefault(p => p != null && p.UserId == userId);
                 if (player == null) return "";
 
-                // 通过全反射获取效果列表，避免编译时依赖游戏类型
-                var playerType = player.GetType();
-                var referenceHub = playerType.GetProperty("ReferenceHub", BindingFlags.Public | BindingFlags.Instance)?.GetValue(player);
-                if (referenceHub == null) return "";
-                var effectsController = referenceHub.GetType().GetProperty("playerEffectsController")?.GetValue(referenceHub);
-                var allEffectsObj = effectsController?.GetType().GetProperty("AllEffects")?.GetValue(effectsController);
-                if (allEffectsObj == null) return "";
-
                 var sb = new StringBuilder();
                 int count = 0;
 
-                foreach (var effectObj in (System.Collections.IEnumerable)allEffectsObj)
+                foreach (var effect in player.ActiveEffects)
                 {
-                    if (effectObj == null) continue;
-                    var et = effectObj.GetType();
+                    if (effect == null || !effect.IsEnabled) continue;
 
-                    var isEnabledProp = et.GetProperty("IsEnabled");
-                    if (isEnabledProp == null) continue;
-                    if (!(bool)isEnabledProp.GetValue(effectObj)) continue;
-
-                    float timeLeft = 0f;
-                    var timeLeftProp = et.GetProperty("TimeLeft");
-                    if (timeLeftProp != null)
-                        timeLeft = (float)timeLeftProp.GetValue(effectObj);
-
-                    int intensity = 0;
-                    var intensityProp = et.GetProperty("Intensity");
-                    if (intensityProp != null)
-                        intensity = Convert.ToInt32(intensityProp.GetValue(effectObj));
+                    float timeLeft = effect.TimeLeft;
+                    byte intensity = effect.Intensity;
 
                     if (timeLeft < 1f && timeLeft > 0) continue;
 
                     count++;
-                    string name = GetBuffDisplayName(effectObj.GetType().Name);
+                    string name = GetBuffDisplayName(effect.GetType().Name);
 
                     if (timeLeft > 0)
                     {
@@ -822,8 +805,7 @@ namespace ExperiencePlugin
             }
             catch (Exception ex)
             {
-                if (_plugin.Config.Debug)
-                    Logger.Debug($"BuildEffectsDisplay错误: {ex.Message}");
+                if (_plugin.Config.Debug) Log.Debug($"BuildEffectsDisplay错误: {ex.Message}");
                 return "";
             }
         }
@@ -832,35 +814,16 @@ namespace ExperiencePlugin
         {
             return englishName switch
             {
-                "MovementBoost" => "移速增强",
-                "Scp207" => "SCP-207",
-                "Scp500" => "SCP-500",
-                "Scp1344" => "SCP-1344",
-                "Scp1853" => "SCP-1853",
-                "Scp268" => "SCP-268",
-                "Scp513" => "SCP-513",
-                "AmnesiaItems" => "记忆丧失",
-                "Asphyxiating" => "窒息",
-                "Bleeding" => "流血",
-                "Burned" => "烧伤",
-                "Concussed" => "震荡",
-                "Corroding" => "腐蚀",
-                "Deafened" => "失聪",
-                "Decontaminating" => "净化",
-                "Disabled" => "瘫痪",
-                "Ensnared" => "困缚",
-                "Exhausted" => "疲劳",
-                "Flashed" => "致盲",
-                "Hemorrhage" => "大出血",
-                "Hypothermia" => "低温",
-                "Invigorated" => "振奋",
-                "Poisoned" => "中毒",
-                "SinkHole" => "陷阱",
-                "Soundless" => "沉默",
-                "Vitality" => "活力",
-                "DamageReduction" => "减伤",
-                "CardiacArrest" => "心脏骤停",
-                "BodilyInjury" => "肢体损伤",
+                "MovementBoost" => "移速增强", "Scp207" => "SCP-207", "Scp500" => "SCP-500",
+                "Scp1344" => "SCP-1344", "Scp1853" => "SCP-1853", "Scp268" => "SCP-268",
+                "Scp513" => "SCP-513", "AmnesiaItems" => "记忆丧失", "Asphyxiating" => "窒息",
+                "Bleeding" => "流血", "Burned" => "烧伤", "Concussed" => "震荡",
+                "Corroding" => "腐蚀", "Deafened" => "失聪", "Decontaminating" => "净化",
+                "Disabled" => "瘫痪", "Ensnared" => "困缚", "Exhausted" => "疲劳",
+                "Flashed" => "致盲", "Hemorrhage" => "大出血", "Hypothermia" => "低温",
+                "Invigorated" => "振奋", "Poisoned" => "中毒", "SinkHole" => "陷阱",
+                "Soundless" => "沉默", "Vitality" => "活力", "DamageReduction" => "减伤",
+                "CardiacArrest" => "心脏骤停", "BodilyInjury" => "肢体损伤",
                 _ => englishName
             };
         }
@@ -893,9 +856,9 @@ namespace ExperiencePlugin
             return msg;
         }
 
-        // ==================== 回合控制（直接订阅） ====================
+        // ==================== 回合控制 ====================
 
-        private void OnRoundStarted()
+        public void OnRoundStarted()
         {
             _roundStartTime = DateTime.Now;
             CombatDataCache.Clear();
@@ -903,10 +866,10 @@ namespace ExperiencePlugin
             _roundDeaths.Clear();
             _roundAssists.Clear();
             _assistDamage.Clear();
-            Logger.Info("回合开始");
+            Log.Info("回合开始");
         }
 
-        private void OnRoundEnded(RoundEndedEventArgs ev)
+        public void OnRoundEnded(RoundEndedEventArgs ev)
         {
             try
             {
@@ -932,7 +895,7 @@ namespace ExperiencePlugin
                 }
                 _plugin.DataManager.SaveAllData();
             }
-            catch (Exception ex) { Logger.Error($"回合结束: {ex.Message}"); }
+            catch (Exception ex) { Log.Error($"回合结束: {ex.Message}"); }
         }
     }
 }

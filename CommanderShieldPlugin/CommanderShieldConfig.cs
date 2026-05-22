@@ -1,20 +1,26 @@
+using System.ComponentModel;
+using Exiled.API.Interfaces;
+
 namespace CommanderShieldPlugin
 {
-    public class CommanderShieldConfig
+    public class CommanderShieldConfig : IConfig
     {
-        /// <summary>AHP最大值</summary>
+        [Description("插件是否启用")]
+        public bool IsEnabled { get; set; } = true;
+
+        [Description("AHP最大值")]
         public int MaxShieldAHP { get; set; } = 50;
 
-        /// <summary>HS最大值</summary>
+        [Description("HS最大值")]
         public int MaxShieldHS { get; set; } = 100;
 
-        /// <summary>每秒回复量</summary>
+        [Description("每秒回复量")]
         public int RegenPerTick { get; set; } = 1;
 
-        /// <summary>HUD刷新间隔（秒）</summary>
+        [Description("HUD刷新间隔（秒）")]
         public float HudRefreshInterval { get; set; } = 1.0f;
 
-        /// <summary>是否替换指挥官卡为O5权限卡</summary>
+        [Description("是否替换指挥官卡为O5权限卡")]
         public bool ReplaceCommanderCard { get; set; } = true;
     }
 }

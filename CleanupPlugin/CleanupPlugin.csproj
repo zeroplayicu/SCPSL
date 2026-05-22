@@ -10,10 +10,13 @@
     <OutputType>Library</OutputType>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <LangVersion>12.0</LangVersion>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Northwood.LabAPI" Version="1.1.6.1" />
+    <PackageReference Include="Exiled.API" Version="9.13.3" />
+    <PackageReference Include="Exiled.Events" Version="9.13.3" />
+    <PackageReference Include="Exiled.Loader" Version="9.13.3" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>

@@ -1,8 +1,7 @@
 using System;
 using System.Linq;
 using CommandSystem;
-using LabApi.Features.Console;
-using LabApi.Features.Wrappers;
+using Exiled.API.Features;
 using PlayerRoles;
 
 namespace ChatPlugin.Commands
@@ -27,12 +26,10 @@ namespace ChatPlugin.Commands
                 string message = string.Join(" ", arguments);
                 var cfg = ChatPlugin.Instance.Config;
 
-                // 从LogName提取玩家名
                 string playerName = sender.LogName;
                 int spaceIdx = playerName.IndexOf(" (", StringComparison.Ordinal);
                 if (spaceIdx > 0) playerName = playerName.Substring(0, spaceIdx);
 
-                // 匹配玩家
                 var player = Player.List?.FirstOrDefault(p =>
                     p != null && (p.Nickname == playerName || p.DisplayName == sender.LogName));
                 if (player == null)
@@ -41,30 +38,29 @@ namespace ChatPlugin.Commands
                     return false;
                 }
 
-                // 使用Faction判断同阵营（更精确的队伍分组）
-                var faction = player.Faction;
+                var team = player.Role.Team;
                 string formatted = $"<size={cfg.FontSize}>{cfg.CPrefix} <color=white>{playerName}</color>: <color=white>{message}</color></size>";
 
                 int count = 0;
                 foreach (var target in Player.List)
                 {
-                    if (target != null && target.Faction == faction)
+                    if (target != null && target.Role.Team == team)
                     {
                         target.ClearBroadcasts();
-                        target.SendBroadcast(formatted, cfg.CDuration);
+                        target.Broadcast(cfg.CDuration, formatted, Broadcast.BroadcastFlags.Normal);
                         count++;
                     }
                 }
 
                 if (cfg.LogChat)
-                    Logger.Info($"[团队][{faction}] {sender.LogName}: {message} ({count}人)");
+                    Log.Info($"[团队][{team}] {sender.LogName}: {message} ({count}人)");
 
                 response = $"团队消息已发送 (同阵营{count}人)";
                 return true;
             }
             catch (Exception ex)
             {
-                Logger.Error($"C命令错误: {ex.Message}");
+                Log.Error($"C命令错误: {ex.Message}");
                 response = "发送失败";
                 return false;
             }

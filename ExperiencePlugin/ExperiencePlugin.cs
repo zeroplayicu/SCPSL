@@ -1,19 +1,14 @@
 using System;
 using System.Timers;
-using LabApi.Events.CustomHandlers;
-using LabApi.Features.Console;
-using LabApi.Features;
-using LabApi.Loader.Features.Plugins;
+using Exiled.API.Features;
 
 namespace ExperiencePlugin
 {
     public class ExperiencePlugin : Plugin<ExperienceConfig>
     {
         public override string Name => "ExperiencePlugin";
-        public override string Description => "经验等级系统插件";
         public override string Author => "Developer";
-        public override Version Version => new Version(1, 0, 0);
-        public override Version RequiredApiVersion => new Version(LabApiProperties.CompiledVersion);
+        public override string Prefix => "exp";
 
         public ExperienceEventHandler EventHandler { get; private set; }
         public PlayerDataManager DataManager { get; private set; }
@@ -21,15 +16,24 @@ namespace ExperiencePlugin
         private Timer _statusTimer;
         private Timer _damageTimer;
 
-        public override void Enable()
+        public override void OnEnabled()
         {
-            Logger.Info($"  {Name} v{Version} 加载中...");
+            Log.Info($"  {Name} v{Version} 加载中...");
 
             DataManager = new PlayerDataManager(this);
             EventHandler = new ExperienceEventHandler(this);
 
-            CustomHandlersManager.RegisterEventsHandler(EventHandler);
-            EventHandler.RegisterRoundEvents();
+            // 注册 EXILED 事件
+            Exiled.Events.Handlers.Player.Verified += EventHandler.OnVerified;
+            Exiled.Events.Handlers.Player.Spawned += EventHandler.OnSpawned;
+            Exiled.Events.Handlers.Player.Dying += EventHandler.OnDying;
+            Exiled.Events.Handlers.Player.Hurt += EventHandler.OnHurt;
+            Exiled.Events.Handlers.Player.Hurting += EventHandler.OnHurting;
+            Exiled.Events.Handlers.Player.Died += EventHandler.OnDied;
+            Exiled.Events.Handlers.Player.ReloadingWeapon += EventHandler.OnReloadingWeapon;
+            Exiled.Events.Handlers.Player.DroppingItem += EventHandler.OnDroppingItem;
+            Exiled.Events.Handlers.Server.RoundStarted += EventHandler.OnRoundStarted;
+            Exiled.Events.Handlers.Server.RoundEnded += EventHandler.OnRoundEnded;
 
             if (Config.ShowStatusAlways)
             {
@@ -44,10 +48,12 @@ namespace ExperiencePlugin
             _damageTimer.AutoReset = true;
             _damageTimer.Start();
 
-            Logger.Info($"{Name} 加载完成");
+            Log.Info($"{Name} 加载完成");
+
+            base.OnEnabled();
         }
 
-        public override void Disable()
+        public override void OnDisabled()
         {
             _statusTimer?.Stop();
             _statusTimer?.Dispose();
@@ -56,11 +62,21 @@ namespace ExperiencePlugin
 
             DataManager?.SaveAllData();
 
-            EventHandler?.UnregisterRoundEvents();
-            CustomHandlersManager.UnregisterEventsHandler(EventHandler);
+            Exiled.Events.Handlers.Player.Verified -= EventHandler.OnVerified;
+            Exiled.Events.Handlers.Player.Spawned -= EventHandler.OnSpawned;
+            Exiled.Events.Handlers.Player.Dying -= EventHandler.OnDying;
+            Exiled.Events.Handlers.Player.Hurt -= EventHandler.OnHurt;
+            Exiled.Events.Handlers.Player.Hurting -= EventHandler.OnHurting;
+            Exiled.Events.Handlers.Player.Died -= EventHandler.OnDied;
+            Exiled.Events.Handlers.Player.ReloadingWeapon -= EventHandler.OnReloadingWeapon;
+            Exiled.Events.Handlers.Player.DroppingItem -= EventHandler.OnDroppingItem;
+            Exiled.Events.Handlers.Server.RoundStarted -= EventHandler.OnRoundStarted;
+            Exiled.Events.Handlers.Server.RoundEnded -= EventHandler.OnRoundEnded;
 
             EventHandler = null;
             DataManager = null;
+
+            base.OnDisabled();
         }
     }
 }

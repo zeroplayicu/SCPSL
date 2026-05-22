@@ -1,9 +1,14 @@
 using System.ComponentModel;
+using Exiled.API.Interfaces;
 
 namespace CleanupPlugin
 {
-    public class CleanupConfig
+    public class CleanupConfig : IConfig
     {
+        [Description("插件是否启用")]
+        public bool IsEnabled { get; set; } = true;
+
+        [Description("调试模式")]
         public bool Debug { get; set; } = false;
 
         [Description("触发清理的掉落物数量阈值")]

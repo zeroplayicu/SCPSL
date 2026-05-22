@@ -1,8 +1,7 @@
 using System;
 using System.Linq;
 using CommandSystem;
-using LabApi.Features.Console;
-using LabApi.Features.Wrappers;
+using Exiled.API.Features;
 
 namespace AntiTeamKillPlugin.Commands
 {
@@ -24,28 +23,19 @@ namespace AntiTeamKillPlugin.Commands
                 }
 
                 string message = string.Join(" ", arguments);
-                string playerName = sender.LogName;
-                int idx = playerName.IndexOf(" (", StringComparison.Ordinal);
-                if (idx > 0) playerName = playerName.Substring(0, idx);
-
-                var player = Player.List.FirstOrDefault(p => p != null && p.Nickname == playerName);
+                var player = Player.Get(sender);
                 if (player == null) { response = "无法获取玩家信息"; return false; }
 
                 var handler = AntiTeamKillPlugin.Instance.EventHandler;
-
-                // 记录消息
-                handler.AddAdminMessage(playerName, player.UserId, message);
-                Logger.Info($"[玩家→管理] {playerName}: {message}");
-
-                // 推送给所有在线管理员
-                handler.ShowAdminMessagesToAdmins();
+                handler.AddAdminMessage(player.Nickname, player.UserId, message);
+                Log.Info($"[玩家→管理] {player.Nickname}: {message}");
 
                 response = $"消息已发送给管理员: {message}";
                 return true;
             }
             catch (Exception ex)
             {
-                Logger.Error($".AC命令错误: {ex.Message}");
+                Log.Error($".AC命令错误: {ex.Message}");
                 response = "发送失败";
                 return false;
             }

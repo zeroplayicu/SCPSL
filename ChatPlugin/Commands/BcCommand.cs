@@ -1,8 +1,7 @@
 using System;
 using System.Linq;
 using CommandSystem;
-using LabApi.Features.Console;
-using LabApi.Features.Wrappers;
+using Exiled.API.Features;
 
 namespace ChatPlugin.Commands
 {
@@ -28,25 +27,24 @@ namespace ChatPlugin.Commands
 
                 string formatted = $"<size={cfg.FontSize}>{cfg.BcPrefix} <color=white>{sender.LogName}</color>: <color=white>{message}</color></size>";
 
-                // LabAPI: 遍历所有玩家发送广播
                 foreach (var target in Player.List)
                 {
                     if (target != null)
                     {
                         target.ClearBroadcasts();
-                        target.SendBroadcast(formatted, cfg.BcDuration);
+                        target.Broadcast(cfg.BcDuration, formatted, Broadcast.BroadcastFlags.Normal);
                     }
                 }
 
                 if (cfg.LogChat)
-                    Logger.Info($"[全体] {sender.LogName}: {message}");
+                    Log.Info($"[全体] {sender.LogName}: {message}");
 
                 response = "全体消息已发送";
                 return true;
             }
             catch (Exception ex)
             {
-                Logger.Error($"BC命令错误: {ex.Message}");
+                Log.Error($"BC命令错误: {ex.Message}");
                 response = "发送失败";
                 return false;
             }

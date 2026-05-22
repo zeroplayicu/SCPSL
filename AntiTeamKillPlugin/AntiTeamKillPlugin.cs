@@ -1,8 +1,6 @@
 using System;
-using LabApi.Events.CustomHandlers;
-using LabApi.Features;
-using LabApi.Features.Console;
-using LabApi.Loader.Features.Plugins;
+using System.Timers;
+using Exiled.API.Features;
 
 namespace AntiTeamKillPlugin
 {
@@ -11,30 +9,45 @@ namespace AntiTeamKillPlugin
         public static AntiTeamKillPlugin Instance { get; private set; }
         public AntiTeamKillEventHandler EventHandler { get; private set; }
 
-        public override string Name => "AntiTeamKillPlugin";
-        public override string Description => "反恶意组杀 + 警告系统 + 玩家管理沟通";
-        public override string Author => "Developer";
-        public override Version Version => new Version(1, 0, 0);
-        public override Version RequiredApiVersion => new Version(LabApiProperties.CompiledVersion);
+        private Timer _adminMsgTimer;
 
-        public override void Enable()
+        public override string Name => "AntiTeamKillPlugin";
+        public override string Author => "Developer";
+        public override string Prefix => "atk";
+
+        public override void OnEnabled()
         {
             Instance = this;
             EventHandler = new AntiTeamKillEventHandler();
 
-            CustomHandlersManager.RegisterEventsHandler(EventHandler);
-            EventHandler.RegisterRoundEvents();
+            Exiled.Events.Handlers.Player.Hurt += EventHandler.OnHurt;
+            Exiled.Events.Handlers.Player.Died += EventHandler.OnDied;
+            Exiled.Events.Handlers.Server.RoundStarted += EventHandler.OnRoundStarted;
 
-            Logger.Info($"{Name} v{Version} 加载完成 - 反组杀/警告系统/.AC管理沟通");
+            _adminMsgTimer = new Timer(8000);
+            _adminMsgTimer.Elapsed += (_, _) => EventHandler.ShowNextAdminMessage();
+            _adminMsgTimer.AutoReset = true;
+            _adminMsgTimer.Start();
+
+            Log.Info($"{Name} v{Version} 加载完成 - 反组杀/警告系统/.AC管理沟通");
+
+            base.OnEnabled();
         }
 
-        public override void Disable()
+        public override void OnDisabled()
         {
-            EventHandler?.UnregisterRoundEvents();
-            CustomHandlersManager.UnregisterEventsHandler(EventHandler);
+            _adminMsgTimer?.Stop();
+            _adminMsgTimer?.Dispose();
+
+            Exiled.Events.Handlers.Player.Hurt -= EventHandler.OnHurt;
+            Exiled.Events.Handlers.Player.Died -= EventHandler.OnDied;
+            Exiled.Events.Handlers.Server.RoundStarted -= EventHandler.OnRoundStarted;
+
             EventHandler?.SaveAllData();
             EventHandler = null;
             Instance = null;
+
+            base.OnDisabled();
         }
     }
 }
