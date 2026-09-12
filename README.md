@@ -16,6 +16,22 @@
 | 🧹 | **CleanupPlugin** | 自动清理地上太多掉落物，防止服务器卡顿 |
 | 🛡️ | **CommanderShieldPlugin** | NTF队长自动获得护盾，能抗伤害还能看剩余盾量 |
 
+### 🆕 EXILED 修复版插件（2026-09 更新）
+
+上面四个是 **LabAPI 版**（标签【labapi】）。下面是 **EXILED 版**（标签【ex】），源码在 [`EXILED修复版/`](./EXILED修复版/) 目录，修复了大量 BUG 和 UI 问题：
+
+| 图标 | 插件 | 一句话说明 |
+|:----:|------|-----------|
+| 🛠️ | **AdminTools** | 管理员等级管理工具 |
+| 🔪 | **AntiTeamKillPlugin** | 防队友误伤（TK 处理与豁免） |
+| 📖 | **AutoTutorialPlugin** | 进服自动变教程角色；准备倒计时不足 3 秒变观察者 |
+| 💬 | **ChatPlugin** | 全体/团队聊天 + 效果与生涯查询（EXILED 版） |
+| 🧹 | **CleanupPlugin** | 掉落物自动清理（EXILED 版） |
+| ⭐ | **ExperiencePlugin** | 经验等级系统 EXILED 版，含兑换码（CDK）与抽奖功能 |
+| 🐙 | **Scp999** | SCP-999 挠痒怪三技能改造版：主技能（治疗）/ 技能2（Yippee）/ 技能3（搞笑动画），按键不预设，玩家在 设置→服务器专属设置 中自行绑定 |
+
+> 💡 编译产物（中文命名的 DLL，带【ex】/【labapi】标签）在 **Releases** 页面下载。
+
 ---
 
 ## 🔧 第一步：怎么安装？（超简单）
@@ -157,11 +173,21 @@ ReplaceCommanderCard: true # 是否发O5卡
 
 需要安装 [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)。
 
+**LabAPI 版**（仓库根目录的各插件文件夹）：
+
 ```bash
-# 安装依赖并编译全部插件
-cd "SCPSL pulint"
-dotnet restore
-dotnet build -c Release
+dotnet build ExperiencePlugin -c Release
+dotnet build CommanderShieldPlugin -c Release
+```
+
+**EXILED 修复版**（`EXILED修复版/` 目录）：
+
+1. 从 **Releases** 下载 `插件编译依赖包.zip`，解压到 `EXILED修复版/Dependencies/`
+2. EXILED 走 NuGet 自动还原；游戏程序集（Assembly-CSharp 等）通过 `SCPSLManagedPath` 参数指定本机服务器 `SCPSL_Data/Managed` 目录：
+
+```bash
+dotnet build "EXILED修复版/Scp999" -c Release \
+  -p:SCPSLManagedPath="D:\SCPSL\SCPSL_Data\Managed"
 ```
 
 编译好的 DLL 在 `项目文件夹\bin\Release\net48\` 下。
@@ -171,13 +197,22 @@ dotnet build -c Release
 ## 📁 文件结构
 
 ```
-zeropl/
-├── ex/   ← 旧版 EXILED 插件（已弃用）
-└── la/   ← 新版 LabAPI 插件（推荐使用）
-    ├── ExperiencePlugin.dll
-    ├── CleanupPlugin.dll
-    ├── ChatPlugin.dll
-    └── CommanderShieldPlugin.dll
+SCPSL/
+├── ExperiencePlugin/          ← LabAPI 版经验插件（【labapi】）
+├── CommanderShieldPlugin/     ← LabAPI 版指挥官护盾（【labapi】）
+├── ChatPlugin/                ← LabAPI 版聊天插件（【labapi】）
+├── CleanupPlugin/             ← LabAPI 版清理插件（【labapi】）
+├── MyFirstPlugin/             ← 示例插件
+├── EXILED修复版/              ← EXILED 插件（【ex】，2026-09 修复版）
+│   ├── AdminTools/
+│   ├── AntiTeamKillPlugin/
+│   ├── AutoTutorialPlugin/
+│   ├── ChatPlugin/
+│   ├── CleanupPlugin/
+│   ├── ExperiencePlugin/      ← EXILED 版（含兑换码、抽奖）
+│   ├── Scp999/                ← SCP-999 三技能改造版
+│   └── Directory.Build.props  ← 游戏程序集引用配置
+└── .github/workflows/
 ```
 
 ---

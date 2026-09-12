@@ -21,3 +21,14 @@ Thumbs.db
 # Plugin binaries
 zeropl/
 
+# Local tool metadata & leftovers
+.codebuddy/
+.workbuddy/
+backup/
+compiled_dlls/
+%ProgramData%/
+
+# Notes: 第三方依赖 DLL 不进仓库（0Harmony / HintServiceMeow / RoleAPI /
+# AudioPlayerApi / ProjectMER），统一放 Releases 的「插件编译依赖包.zip」，
+# 解压到 EXILED修复版/Dependencies/ 后再编译。
+
