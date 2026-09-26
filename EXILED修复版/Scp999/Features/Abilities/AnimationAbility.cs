@@ -56,17 +56,31 @@ public class AnimationAbility : Ability
     private IEnumerator<float> CheckEndOfAnimation(Player player, Animator animator)
     {
         yield return Timing.WaitForSeconds(0.1f);
-        string initialClipName = animator.GetCurrentAnimatorClipInfo(0)[0].clip.name;
-        
+
+        // 本轮修复: 角色被移除/玩家死亡时 animator 会被销毁（Unity 伪 null），
+        // GetCurrentAnimatorClipInfo 也可能返回空数组——原实现会抛
+        // MissingReferenceException / IndexOutOfRangeException，且跳过 Ensnared 的解除。
+        if (animator == null)
+            yield break;
+
+        var initialClips = animator.GetCurrentAnimatorClipInfo(0);
+        if (initialClips.Length == 0)
+            yield break;
+
+        string initialClipName = initialClips[0].clip.name;
+
         while (true)
         {
+            if (player == null || !player.IsConnected || animator == null)
+                yield break;
+
             var clipInfo = animator.GetCurrentAnimatorClipInfo(0);
-            if (clipInfo[0].clip.name != initialClipName)
+            if (clipInfo.Length == 0 || clipInfo[0].clip.name != initialClipName)
             {
                 player.DisableEffect<Ensnared>();
                 yield break;
             }
-            
+
             yield return Timing.WaitForSeconds(0.5f);
         }
     }

@@ -31,13 +31,19 @@ public class EventHandler
         Exiled.Events.Handlers.Player.DroppingItem += this.OnDroppingItem;
         Exiled.Events.Handlers.Player.Hurting += this.OnPlayerHurting;
         Exiled.Events.Handlers.Player.UsingItem += this.OnUsingItem;
-        Exiled.Events.Handlers.Player.UsingItem += this.OnUsingItem;
         Exiled.Events.Handlers.Player.Dying += this.OnPlayerDying;
         Exiled.Events.Handlers.Scp330.InteractingScp330 += this.OnInteractingScp330;
         LabApi.Events.Handlers.PlayerEvents.ValidatedVisibility += this.OnPlayerValidatedVisibility;
     }
     
-    ~EventHandler()
+    /// <summary>
+    /// 本轮修复: 原实现把事件取消订阅放在 finalizer(~EventHandler) 中，
+    /// finalizer 只在 GC 时才可能运行，且 Plugin.OnDisabled 仅把字段置 null，
+    /// 导致插件禁用/重载后旧实例的事件订阅仍然存活：重载后所有事件会被新旧两个
+    /// handler 各处理一次（SCP-999 双重生成、伤害逻辑重复执行）。
+    /// 现提供显式 UnregisterEvents，由 Plugin.OnDisabled 同步调用，保证订阅对称。
+    /// </summary>
+    public void UnregisterEvents()
     {
         Exiled.Events.Handlers.Server.RoundStarted -= this.OnRoundStarted;
         Exiled.Events.Handlers.Warhead.Starting -= this.OnWarheadStart;
@@ -48,7 +54,6 @@ public class EventHandler
         Exiled.Events.Handlers.Player.SearchingPickup -= this.OnSearchingPickup;
         Exiled.Events.Handlers.Player.DroppingItem -= this.OnDroppingItem;
         Exiled.Events.Handlers.Player.Hurting -= this.OnPlayerHurting;
-        Exiled.Events.Handlers.Player.UsingItem -= this.OnUsingItem;
         Exiled.Events.Handlers.Player.UsingItem -= this.OnUsingItem;
         Exiled.Events.Handlers.Player.Dying -= this.OnPlayerDying;
         Exiled.Events.Handlers.Scp330.InteractingScp330 -= this.OnInteractingScp330;
@@ -183,7 +188,13 @@ public class EventHandler
     /// </summary>
     private void OnPlayerDying(DyingEventArgs ev)
     {
-        if (CustomRole.Get(typeof(Scp999Role))!.Check(ev.Player))
+        // 本轮修复: CustomRole.Get 可能返回 null（如 ProjectMER 未安装时角色未注册，
+        // 此时每个玩家死亡都会触发本事件），原实现用 "!" 强解引用会导致 NRE
+        var scp999Role = CustomRole.Get(typeof(Scp999Role)) as Scp999Role;
+        if (scp999Role == null)
+            return;
+
+        if (scp999Role.Check(ev.Player))
         {
             ev.Player.ClearInventory();
         }

@@ -58,15 +58,19 @@ public class Plugin : Plugin<Config>
 
     public override void OnDisabled()
     {
+        // 本轮修复: 必须在禁用时显式解除事件订阅（配合 EventHandler.UnregisterEvents），
+        // 否则插件重载后新旧 EventHandler 同时订阅事件，所有事件处理执行两遍
+        _eventHandler?.UnregisterEvents();
+
         AbilityManager.UnregisterAbilities();
         KeybindManager.UnregisterKeybinds(); // Unregister keybinds
-        
+
         Config.Scp999RoleConfig.Unregister();
         _harmony.UnpatchAll();
 
         _eventHandler = null;
         Singleton = null;
-        
+
         base.OnDisabled();
     }
 

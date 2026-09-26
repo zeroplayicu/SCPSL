@@ -17,9 +17,18 @@ public class MovementController : MonoBehaviour
 
     private void Update()
     {
+        // 本轮修复: 判空保护——
+        //  1. Init 传入的 speaker 可能为 null（TryGetSpeaker 失败时），原实现每帧访问
+        //     _speaker.transform 会抛 NullReferenceException；
+        //  2. 玩家/schematic 已被销毁（Unity 伪 null）时也要跳过，避免 MissingReferenceException。
+        if (_player == null || _schematicObject == null)
+            return;
+
         _schematicObject.transform.position = _player.GameObject.transform.position + _offset;
         _schematicObject.transform.rotation = _player.GameObject.transform.rotation;
-        _speaker.transform.position = _player.GameObject.transform.position;
+
+        if (_speaker != null)
+            _speaker.transform.position = _player.GameObject.transform.position;
     }
 
     private void OnDestroy()

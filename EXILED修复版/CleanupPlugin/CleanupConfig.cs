@@ -15,7 +15,9 @@ namespace CleanupPlugin
         [Description("清理间隔（秒），默认300秒(5分钟)")]
         public int CleanupInterval { get; set; } = 300;
 
-        [Description("掉落物数量超过该值时自动提前清扫")]
+        [Description("尸体数量超过该值时自动提前清扫")]
+        // 本轮修复: 原描述写的是"掉落物数量"，但 OnThresholdCheck 实际检查的是尸体(Ragdoll)数量，
+        // 启动日志也按"尸体"输出——按实际语义修正描述，避免运维误解配置含义
         public int PickupThreshold { get; set; } = 500;
 
         [Description("开局免清扫时间（秒）：回合开始后这段时间内不触发自动清扫，默认300秒(5分钟)")]
@@ -39,17 +41,10 @@ namespace CleanupPlugin
         public string CleanupDoneMessage { get; set; } =
             "<color=green>扫地完成！已清空所有尸体</color>";
 
-        [Description("是否使用CASSIE(系统)语音广播提示清理(默认true)")]
-        public bool UseCassieAnnouncement { get; set; } = true;
-
-        [Description("清理倒计时CASSIE语音内容({time}=剩余秒数的英文发音，CASSIE只支持英文)")]
-        public string CassieCountdownText { get; set; } = "AREA WILL BE CLEANED IN .{time}";
-
-        [Description("清理开始CASSIE语音内容")]
-        public string CassieCleaningStartText { get; set; } = "CLEANING IN PROGRESS";
-
-        [Description("清理完成CASSIE语音内容")]
-        public string CassieCleaningDoneText { get; set; } = "CLEANING COMPLETED";
+        // 本轮修复: 原注释已说明"已取消 CASSIE 语音广播"，但下列 4 个 CASSIE 配置项
+        // 在代码中零引用（grep 验证），改了配置不生效，属误导性配置。
+        // 按照之前 BUG-14 的处理方式移除：UseCassieAnnouncement / CassieCountdownText /
+        // CassieCleaningStartText / CassieCleaningDoneText。
 
         [Description("是否在CASSIE语音同时保留屏幕文字提示(默认true)")]
         public bool KeepScreenWarning { get; set; } = true;

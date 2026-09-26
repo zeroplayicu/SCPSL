@@ -12,7 +12,13 @@ public class SchematicMerPatch
         var stackTrace = new StackTrace();
         foreach (var frame in stackTrace.GetFrames())
         {
-            var declaringType = frame.GetMethod().DeclaringType;
+            var declaringType = frame.GetMethod()?.DeclaringType;
+
+            // 本轮修复: 动态方法/编译器生成方法等帧的 DeclaringType 可能为 null，
+            // 原实现直接访问 .Assembly 会抛 NRE 并破坏被 patch 的 getter
+            if (declaringType == null)
+                continue;
+
             var assemblyName = declaringType.Assembly.GetName().Name;
 
             if (assemblyName == "Scp999" && declaringType.Name == "SchematicManager")
@@ -21,7 +27,7 @@ public class SchematicMerPatch
                 return false;
             }
         }
-        
+
         return true;
     }
 }

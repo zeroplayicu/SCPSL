@@ -20,8 +20,11 @@ public static class AudioManager
     
     public static AudioPlayer AddAudioPlayer(Player player, int volume)
     {
-        AudioPlayer audioPlayer = AudioPlayer.CreateOrGet($"Scp999 {player.Nickname}", onIntialCreation: (p) =>
-        {        
+        // 本轮修复: 原实现用昵称作 Key，游戏允许玩家中途改昵称——改名后会再建一个新
+        // AudioPlayer（旧的成为泄漏），两个同名玩家则会共享同一播放器导致声音错乱。
+        // UserId 在整个会话中唯一且稳定，改用它作 Key。
+        AudioPlayer audioPlayer = AudioPlayer.CreateOrGet($"Scp999 {player.UserId}", onIntialCreation: (p) =>
+        {
             // Attach created audio player to player.
             p.transform.parent = player.GameObject.transform;
 

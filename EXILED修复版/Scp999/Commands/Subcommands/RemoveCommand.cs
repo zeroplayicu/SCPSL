@@ -2,6 +2,7 @@
 using CommandSystem;
 using Exiled.API.Features;
 using Exiled.CustomRoles.API.Features;
+using Exiled.Permissions.Extensions;
 using Scp999.Features;
 
 namespace Scp999.Commands;
@@ -12,6 +13,15 @@ public class RemoveCommand : ICommand
     public string[] Aliases => [];
     public bool Execute(ArraySegment<string> arguments, ICommandSender sender, out string response)
     {
+        // 本轮修复: ParentCommand 分发子命令时不经过 ExecuteParent 的权限校验，
+        // 原实现任何能打开 RemoteAdmin 面板的人都可以绕过 .scp999 权限移除角色。
+        // 与 MainCommand.ExecuteParent 的校验保持一致。
+        if (!((CommandSender)sender).CheckPermission(".scp999"))
+        {
+            response = "You do not have permission to use this command!";
+            return false;
+        }
+
         if (arguments.Count != 1)
         {
             response = $"Specify the player id to the command: scp999 remove [id]";

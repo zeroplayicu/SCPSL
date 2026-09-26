@@ -16,7 +16,8 @@ public class HealAbility : Ability
     protected override void ActivateAbility(Player player, Animator animator, AudioPlayer audioPlayer)
     {
         animator?.Play("HealthAnimation");
-        audioPlayer.AddClip($"health");
+        // 本轮修复: audioPlayer 可能为 null（与 AnimationAbility/YippeeAbility 的判空保持一致）
+        audioPlayer?.AddClip($"health");
         
         // Heal all the players in the radius
         foreach (Player ply in Player.List)

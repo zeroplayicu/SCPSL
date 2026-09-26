@@ -41,6 +41,13 @@ public static class KeybindManager
 
     public static void UnregisterKeybinds()
     {
+        // 本轮修复: ProjectMER 未安装时 Plugin.OnEnabled 提前 return，
+        // RegisterKeybinds 不会执行，此时 _settings 为 null，
+        // SettingBase.Unregister(null) 会抛 NRE 并中断 OnDisabled 后续清理（如 UnpatchAll）
+        if (_settings == null)
+            return;
+
         SettingBase.Unregister(settings: _settings);
+        _settings = null;
     }
 }

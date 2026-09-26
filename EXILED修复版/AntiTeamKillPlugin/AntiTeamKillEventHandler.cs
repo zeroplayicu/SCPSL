@@ -478,30 +478,46 @@ namespace AntiTeamKillPlugin
         /// <summary>BUG-25修复: 返回内部列表引用，避免调用方 Add 到临时列表导致数据丢失</summary>
         public List<string> GetWarnings(string userId)
         {
-            if (!_warnings.TryGetValue(userId, out var list))
+            // 本轮修复: _saveTimer.Elapsed(线程池线程)会调用 FlushWarningsIfDirty→SaveWarnings
+            // 遍历序列化 _warnings，与主线程事件回调中的 Add/Get 写操作并发，
+            // Dictionary 非线程安全，可能出现枚举时集合被修改异常或内部结构损坏。
+            // 统一用 _warnLock 保护 _warnings 的读写。
+            lock (_warnLock)
             {
-                list = new List<string>();
-                _warnings[userId] = list;
+                if (!_warnings.TryGetValue(userId, out var list))
+                {
+                    list = new List<string>();
+                    _warnings[userId] = list;
+                }
+                return list;
             }
-            return list;
         }
 
         public void AddWarning(string userId, string warning)
         {
-            if (!_warnings.ContainsKey(userId))
-                _warnings[userId] = new List<string>();
-            _warnings[userId].Add($"[{DateTime.Now:yyyy-MM-dd HH:mm}] {warning}");
-            // BUG-26修复: 延迟保存，避免每次加警告都全量写盘
-            _warningsDirty = true;
+            lock (_warnLock)
+            {
+                if (!_warnings.ContainsKey(userId))
+                    _warnings[userId] = new List<string>();
+                _warnings[userId].Add($"[{DateTime.Now:yyyy-MM-dd HH:mm}] {warning}");
+                // BUG-26修复: 延迟保存，避免每次加警告都全量写盘
+                _warningsDirty = true;
+            }
         }
 
         public int GetTotalWarnings(string userId)
         {
-            return _warnings.TryGetValue(userId, out var list) ? list.Count : 0;
+            lock (_warnLock)
+            {
+                return _warnings.TryGetValue(userId, out var list) ? list.Count : 0;
+            }
         }
 
         // BUG-26修复: 脏标记，由定时器/回合结束时统一落盘
         private volatile bool _warningsDirty;
+
+        // 本轮修复: 保护 _warnings 跨线程访问的锁（与 _warnings 生命周期一致）
+        private readonly object _warnLock = new object();
 
         /// <summary>BUG-26修复: 若有未保存变更则写盘（供定时器/回合事件调用）</summary>
         public void FlushWarningsIfDirty()
@@ -533,15 +549,19 @@ namespace AntiTeamKillPlugin
 
         private void SaveWarnings()
         {
-            try
+            // 本轮修复: 序列化必须在锁内进行，避免与主线程的 AddWarning 并发枚举字典
+            lock (_warnLock)
             {
-                var serializer = new YamlDotNet.Serialization.SerializerBuilder()
-                    .WithNamingConvention(YamlDotNet.Serialization.NamingConventions.CamelCaseNamingConvention.Instance)
-                    .Build();
-                string yaml = serializer.Serialize(_warnings);
-                File.WriteAllText(WarningsFile, yaml);
+                try
+                {
+                    var serializer = new YamlDotNet.Serialization.SerializerBuilder()
+                        .WithNamingConvention(YamlDotNet.Serialization.NamingConventions.CamelCaseNamingConvention.Instance)
+                        .Build();
+                    string yaml = serializer.Serialize(_warnings);
+                    File.WriteAllText(WarningsFile, yaml);
+                }
+                catch (Exception ex) { Log.Error($"保存警告数据失败: {ex.Message}"); }
             }
-            catch (Exception ex) { Log.Error($"保存警告数据失败: {ex.Message}"); }
         }
 
         // ==================== 管理消息堆叠显示 ====================
