@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>12</LangVersion>
+    <AssemblyName>Scp999</AssemblyName>
+    <RootNamespace>Scp999</RootNamespace>
+    <Version>1.3.0</Version>
+    <Authors>RisottoMan</Authors>
+    <Product>Scp999</Product>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <NoWarn>$(NoWarn);CS0436;CS0108;CS0114;CS0067</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ExMod.Exiled" Version="9.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="RoleAPI">
+      <HintPath>$(MSBuildProjectDir)..\Dependencies\roleapi.dll</HintPath>
+    </Reference>
+    <Reference Include="AudioPlayerApi">
+      <HintPath>$(MSBuildProjectDir)..\Dependencies\audioplayerapi.dll</HintPath>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(MSBuildProjectDir)..\Dependencies\0Harmony.dll</HintPath>
+    </Reference>
+    <Reference Include="ProjectMER">
+      <HintPath>$(MSBuildProjectDir)..\Dependencies\ProjectMER.dll</HintPath>
+    </Reference>
+    <Reference Include="HintServiceMeow-Exiled">
+      <HintPath>$(MSBuildProjectDir)..\Dependencies\HintServiceMeow-Exiled.dll</HintPath>
+    </Reference>
+    <Reference Include="Assembly-CSharp-firstpass">
+      <HintPath>$(ScpslManagedPath)\Assembly-CSharp-firstpass.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(ScpslManagedPath)\UnityEngine.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(ScpslManagedPath)\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.AnimationModule">
+      <HintPath>$(ScpslManagedPath)\UnityEngine.AnimationModule.dll</HintPath>
+    </Reference>
+    <Reference Include="Mirror">
+      <HintPath>$(ScpslManagedPath)\Mirror.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>$(ScpslManagedPath)\UnityEngine.PhysicsModule.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Properties/**/*.cs" />
+  </ItemGroup>
+
+</Project>

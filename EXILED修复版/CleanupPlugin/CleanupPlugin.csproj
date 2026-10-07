@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>CleanupPlugin</AssemblyName>
+    <RootNamespace>CleanupPlugin</RootNamespace>
+    <Version>1.0.0</Version>
+    <Authors>Developer</Authors>
+    <Description>掉落物自动清理插件</Description>
+    <OutputType>Library</OutputType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <LangVersion>12.0</LangVersion>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ExMod.Exiled" Version="9.13.3" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- UI-06修复: 清扫提示改用 HintServiceMeow 下发，需要引用 HSM -->
+  <ItemGroup>
+    <Reference Include="HintServiceMeow-Exiled">
+      <HintPath>..\Dependencies\HintServiceMeow-Exiled.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
