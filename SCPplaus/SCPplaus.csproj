@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>SCPplaus</RootNamespace>
+    <AssemblyName>SCPplaus</AssemblyName>
+    <LangVersion>12</LangVersion>
+    <Nullable>disable</Nullable>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+  <PropertyGroup>
+    <Version>1.0.0</Version>
+    <Description>SCP增强插件 - 096/049/106/939/173加强</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ExMod.Exiled" Version="9.13.3" />
+    <Reference Include="0Harmony">
+      <HintPath>..\zeropl\ex\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

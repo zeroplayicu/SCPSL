@@ -1,14 +1,17 @@
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Exiled.API.Features;
 using Exiled.Events.EventArgs.Player;
 using Exiled.Events.EventArgs.Server;
 using PlayerRoles;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
+using HintServiceMeow.Core.Extension;
+using HintServiceMeow.Core.Models.Hints;
+using HintServiceMeow.Core.Utilities;
+using HintServiceMeow.Core.Enum;
+using HsmHint = HintServiceMeow.Core.Models.Hints.Hint;
 
 namespace AntiTeamKillPlugin
 {
@@ -22,9 +25,9 @@ namespace AntiTeamKillPlugin
         private Dictionary<string, List<string>> _warnings = new Dictionary<string, List<string>>();
 
         public readonly List<AdminMessage> AdminMessages = new List<AdminMessage>();
-        private int _currentMsgIndex = 0;
-        private bool _isShowingOverflow = false;
-        private const int MaxVisibleMessages = 5;
+        private static readonly object _msgLock = new object();
+        private const int MaxVisibleMessages = 8;
+        private const int MessageLifetimeSeconds = 300;
 
         public class AdminMessage
         {
@@ -40,28 +43,16 @@ namespace AntiTeamKillPlugin
 
         private string WarningsFile => Path.Combine(DataDir, AntiTeamKillPlugin.Instance.Config.WarningsFile);
 
-        private readonly ISerializer _serializer;
-        private readonly IDeserializer _deserializer;
-
         public AntiTeamKillEventHandler()
         {
-            _serializer = new SerializerBuilder()
-                .WithNamingConvention(CamelCaseNamingConvention.Instance)
-                .Build();
-            _deserializer = new DeserializerBuilder()
-                .WithNamingConvention(CamelCaseNamingConvention.Instance)
-                .IgnoreUnmatchedProperties()
-                .Build();
-
             if (!Directory.Exists(DataDir))
                 Directory.CreateDirectory(DataDir);
-
             LoadAllData();
         }
 
         // ==================== 组杀检测 ====================
 
-        public void OnHurt(HurtEventArgs ev)
+        public void OnHurting(HurtingEventArgs ev)
         {
             try
             {
@@ -69,16 +60,10 @@ namespace AntiTeamKillPlugin
                 if (ev.Attacker == ev.Player) return;
                 if (ev.Attacker.Role.Team == ev.Player.Role.Team && !ev.Player.IsScp)
                 {
-                    float dmg = ev.Amount;
-                    if (dmg <= 0) return;
+                    if (ev.Amount <= 0) return;
 
-                    // 攻击队友：扣HP
-                    var prop = ev.DamageHandler.GetType().GetProperty("Damage");
-                    if (prop != null && prop.CanWrite)
-                    {
-                        float afterDmg = Math.Max(0, dmg - 1);
-                        prop.SetValue(ev.DamageHandler, afterDmg);
-                    }
+                    // 攻击队友：Hurting 阶段直接改伤害（Hurt 时伤害已结算，事后改 DamageHandler 无效）
+                    ev.Amount = Math.Max(0, ev.Amount - 1);
 
                     DeductXp(ev.Attacker.UserId, AntiTeamKillPlugin.Instance.Config.TeamHitXpPenalty);
 
@@ -96,15 +81,23 @@ namespace AntiTeamKillPlugin
         {
             try
             {
-                if (ev.Attacker == null || ev.Target == null) return;
-                if (ev.Attacker == ev.Target) return;
+                if (ev.Attacker == null || ev.Player == null) return;
+                if (ev.Attacker == ev.Player) return;
 
-                _killedBy[ev.Target.UserId] = ev.Attacker.UserId;
-
-                if (ev.Attacker.Role.Team == ev.Target.Role.Team && !ev.Target.IsScp && !ev.Attacker.IsScp)
+                if (ev.Attacker.Role.Team == ev.Player.Role.Team && !ev.Player.IsScp && !ev.Attacker.IsScp)
                 {
+                    // 仅记录真正的组杀，供 .tk/.ma 使用（记录所有死亡会让敌方击杀也能开庭，波及无辜）
+                    _killedBy[ev.Player.UserId] = ev.Attacker.UserId;
+
                     string killerId = ev.Attacker.UserId;
-                    string victimId = ev.Target.UserId;
+                    string victimId = ev.Player.UserId;
+
+                    // 提示受害者："你被队友击杀"，可输入 .tk 发起开庭
+                    try
+                    {
+                        ev.Player.ShowHint($"<size=22><color=red>⚠ 你被队友 {ev.Attacker.Nickname} 击杀！</color>\n<size=18><color=white>若掌握充足证据，输入 <color=#FFD700>.tk</color> 发起开庭</color></size></size>", 8);
+                    }
+                    catch { }
 
                     if (!_teamKilledVictims.ContainsKey(killerId))
                         _teamKilledVictims[killerId] = new HashSet<string>();
@@ -114,9 +107,9 @@ namespace AntiTeamKillPlugin
 
                     DeductXp(killerId, AntiTeamKillPlugin.Instance.Config.TeamKillXpPenalty);
 
-                    Log.Info($"[反组杀] {ev.Attacker.Nickname} 击杀队友 {ev.Target.Nickname} (本局第{kills}次) → 扣{AntiTeamKillPlugin.Instance.Config.TeamKillXpPenalty}XP");
+                    Log.Info($"[反组杀] {ev.Attacker.Nickname} 击杀队友 {ev.Player.Nickname} (本局第{kills}次) → 扣{AntiTeamKillPlugin.Instance.Config.TeamKillXpPenalty}XP");
 
-                    if (kills >= AntiTeamKillPlugin.Instance.Config.MaxTeamKillsPerRound)
+                    if (kills == AntiTeamKillPlugin.Instance.Config.MaxTeamKillsPerRound)
                     {
                         PunishTeamKiller(ev.Attacker, kills);
                     }
@@ -142,6 +135,123 @@ namespace AntiTeamKillPlugin
             return _killedBy.TryGetValue(victimUserId, out var killerId) ? killerId : null;
         }
 
+        // ==================== TK 开庭系统 ====================
+
+        /// <summary>开庭案件</summary>
+        public class TkCase
+        {
+            public string CaseId { get; set; }        // 4位随机案件号
+            public string ApplicantId { get; set; }   // 开通者（受害者）
+            public string ApplicantName { get; set; }
+            public string DefendantId { get; set; }   // 被告（击杀者）
+            public string DefendantName { get; set; }
+            public DateTime CreatedAt { get; set; }
+            public bool Confirmed { get; set; }       // 管理员是否已确认开庭
+        }
+
+        // CaseId -> 案件
+        private readonly Dictionary<string, TkCase> _tkCases = new Dictionary<string, TkCase>();
+        // 玩家UserId -> 当前案件号
+        private readonly Dictionary<string, string> _playerTkCase = new Dictionary<string, string>();
+
+        /// <summary>生成4位随机案件号（不含已存在/易混淆字符）</summary>
+        private static string GenerateCaseId()
+        {
+            var rng = new Random();
+            const string chars = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"; // 去易混淆
+            return new string(Enumerable.Repeat(chars, 4).Select(s => s[rng.Next(s.Length)]).ToArray());
+        }
+
+        /// <summary>受害者发起开庭。返回生成或已存在的案件号；若条件不满足返回 null</summary>
+        public string StartTkCase(Player applicant)
+        {
+            // 已在开庭中则返回原案件号
+            if (_playerTkCase.TryGetValue(applicant.UserId, out string existingId))
+                return existingId;
+
+            string killerId = GetKillerUserId(applicant.UserId);
+            if (killerId == null)
+                return null; // 无法找到击杀者
+
+            var defendant = Player.List.FirstOrDefault(p => p != null && p.UserId == killerId);
+            string defendantName = defendant != null ? defendant.Nickname : "未知玩家";
+
+            string caseId = GenerateCaseId();
+            while (_tkCases.ContainsKey(caseId))
+                caseId = GenerateCaseId();
+
+            var tk = new TkCase
+            {
+                CaseId = caseId,
+                ApplicantId = applicant.UserId,
+                ApplicantName = applicant.Nickname,
+                DefendantId = killerId,
+                DefendantName = defendantName,
+                CreatedAt = DateTime.Now,
+                Confirmed = false
+            };
+            _tkCases[caseId] = tk;
+            _playerTkCase[applicant.UserId] = caseId;
+
+            // 向所有在线管理员发出提示
+            string adminMsg = $"<size=20><color=#FFD700>⚖ 有人发起开庭</color></size>\n" +
+                $"<color=white>玩家 <color=#FFD700>{applicant.Nickname}</color>(开通者) 申请开庭</color>\n" +
+                $"<color=white>玩家 <color=red>{defendantName}</color>(被告) 进行开庭</color>\n" +
+                $"<color=#AAAAAA>案件号: <color=#00FF00>{caseId}</color>  管理员输入 <color=#FFD700>.tk yes {caseId}</color> 确认开庭</color>";
+            NotifyAdmins(adminMsg, 15);
+
+            Log.Info($"[开庭] {applicant.Nickname} 发起开庭(案件号{caseId})，被告 {defendantName}");
+
+            return caseId;
+        }
+
+        /// <summary>管理员确认开庭。成功返回 true（3人变教程角色）</summary>
+        public bool ConfirmTkCase(Player admin, string caseId)
+        {
+            if (!admin.RemoteAdminAccess)
+                return false;
+
+            string upperId = caseId.ToUpperInvariant();
+            if (!_tkCases.TryGetValue(upperId, out var tk) || tk.Confirmed)
+                return false;
+
+            // 找出开通者、被告、确认的管理员
+            var applicant = Player.List.FirstOrDefault(p => p != null && p.UserId == tk.ApplicantId);
+            var defendant = Player.List.FirstOrDefault(p => p != null && p.UserId == tk.DefendantId);
+
+            tk.Confirmed = true;
+
+            // 3人变为教程角色：开通者 + 被告 + 确认开庭的管理员
+            var toTutorial = new List<Player>();
+            if (applicant != null) toTutorial.Add(applicant);
+            if (defendant != null) toTutorial.Add(defendant);
+            if (!toTutorial.Contains(admin)) toTutorial.Add(admin);
+
+            foreach (var p in toTutorial)
+            {
+                try { p.Role.Set(RoleTypeId.Tutorial, Exiled.API.Enums.SpawnReason.Respawn, RoleSpawnFlags.All); }
+                catch { }
+            }
+
+            string names = string.Join("、", toTutorial.Select(p => p.Nickname));
+            Log.Info($"[开庭] 管理员 {admin.Nickname} 确认案件号{upperId} → 开庭完成，{names} 变为教程角色");
+
+            string notify = $"<size=20><color=#FFD700>⚖ 开庭完成</color></size>\n<color=white>案件号 {upperId} 已确认，{names} 变为教程角色</color>";
+            NotifyAdmins(notify, 10);
+
+            _playerTkCase.Remove(tk.ApplicantId);
+            _tkCases.Remove(upperId);
+
+            return true;
+        }
+
+        /// <summary>获取指定玩家的待处理案件（用于验证 .tk yes 时案件有效）</summary>
+        public TkCase GetTkCase(string caseId)
+        {
+            _tkCases.TryGetValue(caseId.ToUpperInvariant(), out var tk);
+            return tk;
+        }
+
         public List<Player> GetTutorialPlayers()
         {
             return Player.List.Where(p => p != null && p.Role.Type == RoleTypeId.Tutorial).ToList();
@@ -162,37 +272,40 @@ namespace AntiTeamKillPlugin
         {
             try
             {
-                string dataFile = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    "EXILED", "ExperienceData", "player_data.yml");
+                // 查找 ExperiencePlugin 实例，通过其 DataManager 内存操作扣除经验
+                // 避免直接读写 YAML 文件导致的性能问题和数据竞争
+                var expPlugin = Exiled.Loader.Loader.GetPlugin("ExperiencePlugin");
+                if (expPlugin == null)
+                {
+                    Log.Warn("[反组杀] 未找到 ExperiencePlugin，无法扣XP");
+                    return;
+                }
 
-                if (!File.Exists(dataFile)) return;
+                // 通过反射调用 DataManager 的 GetExperience 和修改经验值
+                var dataManager = expPlugin.GetType().GetProperty("DataManager")?.GetValue(expPlugin);
+                if (dataManager == null)
+                {
+                    Log.Warn("[反组杀] 未找到 DataManager，无法扣XP");
+                    return;
+                }
 
-                string yaml = File.ReadAllText(dataFile);
-                var dic = _deserializer.Deserialize<Dictionary<string, PlayerDataEntry>>(yaml);
-                if (dic == null || !dic.TryGetValue(userId, out var entry)) return;
+                var getPlayerData = dataManager.GetType().GetMethod("GetPlayerData");
+                if (getPlayerData == null) return;
 
-                entry.Experience = Math.Max(0, entry.Experience - amount);
-                string newYaml = _serializer.Serialize(dic);
-                File.WriteAllText(dataFile, newYaml);
+                var playerData = getPlayerData.Invoke(dataManager, new object[] { userId });
+                if (playerData == null) return;
+
+                var expProp = playerData.GetType().GetProperty("Experience");
+                if (expProp == null) return;
+
+                int currentExp = (int)expProp.GetValue(playerData);
+                int newExp = Math.Max(0, currentExp - amount);
+                expProp.SetValue(playerData, newExp);
 
                 if (AntiTeamKillPlugin.Instance.Config.Debug)
-                    Log.Debug($"[反组杀] {userId} 扣{amount}XP (剩余{entry.Experience})");
+                    Log.Debug($"[反组杀] {userId} 扣{amount}XP (剩余{newExp})");
             }
             catch (Exception ex) { Log.Error($"扣XP错误: {ex.Message}"); }
-        }
-
-        private class PlayerDataEntry
-        {
-            public string UserId { get; set; }
-            public string PlayerName { get; set; }
-            public int Experience { get; set; }
-            public int Level { get; set; }
-            public int TotalPlayTimeMinutes { get; set; }
-            public int TotalKills { get; set; }
-            public int TotalDeaths { get; set; }
-            public DateTime LastLoginTime { get; set; }
-            public DateTime CreatedTime { get; set; }
         }
 
         // ==================== 警告系统 ====================
@@ -222,7 +335,11 @@ namespace AntiTeamKillPlugin
                 if (File.Exists(WarningsFile))
                 {
                     string yaml = File.ReadAllText(WarningsFile);
-                    var data = _deserializer.Deserialize<Dictionary<string, List<string>>>(yaml);
+                    var deserializer = new YamlDotNet.Serialization.DeserializerBuilder()
+                        .WithNamingConvention(YamlDotNet.Serialization.NamingConventions.CamelCaseNamingConvention.Instance)
+                        .IgnoreUnmatchedProperties()
+                        .Build();
+                    var data = deserializer.Deserialize<Dictionary<string, List<string>>>(yaml);
                     if (data != null) _warnings = data;
                 }
             }
@@ -235,75 +352,101 @@ namespace AntiTeamKillPlugin
         {
             try
             {
-                string yaml = _serializer.Serialize(_warnings);
+                var serializer = new YamlDotNet.Serialization.SerializerBuilder()
+                    .WithNamingConvention(YamlDotNet.Serialization.NamingConventions.CamelCaseNamingConvention.Instance)
+                    .Build();
+                string yaml = serializer.Serialize(_warnings);
                 File.WriteAllText(WarningsFile, yaml);
             }
             catch (Exception ex) { Log.Error($"保存警告数据失败: {ex.Message}"); }
         }
 
-        // ==================== 管理消息轮播 ====================
+        // ==================== 管理消息堆叠显示 ====================
 
         public void AddAdminMessage(string playerName, string userId, string message)
         {
-            AdminMessages.Add(new AdminMessage
+            lock (_msgLock)
             {
-                PlayerName = playerName, UserId = userId, Message = message, Time = DateTime.Now
-            });
-            ShowNextAdminMessage();
+                AdminMessages.Add(new AdminMessage
+                {
+                    PlayerName = playerName, UserId = userId, Message = message, Time = DateTime.Now
+                });
+                CleanupOldMessages();
+            }
+            RefreshAdminDisplay();
         }
 
-        public void ShowNextAdminMessage()
+        public void RefreshAdminDisplay()
         {
             try
             {
-                int total = AdminMessages.Count;
-                if (total == 0) return;
-
-                int unread = total - _currentMsgIndex;
-
-                if (unread <= 0)
+                string display;
+                lock (_msgLock)
                 {
-                    _currentMsgIndex = total > MaxVisibleMessages ? total - MaxVisibleMessages : 0;
-                    unread = total - _currentMsgIndex;
-                }
-
-                if (unread > MaxVisibleMessages)
-                {
-                    if (!_isShowingOverflow)
+                    CleanupOldMessages();
+                    if (AdminMessages.Count == 0)
                     {
-                        _isShowingOverflow = true;
-                        string summary = $"<size=20><color=#FFD700>[管理消息]</color> 您有 <color=white>{unread}</color> 条新消息待阅</size>";
+                        // 没有待处理消息时，用空白内容覆盖 AC 提示层（不影响其它层的持久Hint）
+                        var blank = new HsmHint
+                        {
+                            Id = "ac_display",
+                            Text = " ",
+                            FontSize = 16,
+                            YCoordinate = 200,
+                            Alignment = HintAlignment.Center
+                        };
                         foreach (var p in Player.List)
                         {
-                            if (p != null && p.RemoteAdminAccess && !p.IsNpc)
-                                p.ShowHint(summary, 8);
+                            if (p != null && p.RemoteAdminAccess && !p.IsNPC)
+                            {
+                                // HSM 同 Id 不替换：先移除旧实例再发空白，否则旧消息残留
+                                var disp = PlayerDisplay.Get(p);
+                                disp.RemoveHint("ac_display");
+                                disp.ShowHint(blank, 1f);
+                            }
                         }
+                        return;
                     }
-                    return;
+
+                    var msgParts = new List<string>();
+                    foreach (var m in AdminMessages)
+                    {
+                        msgParts.Add($"<color=#FFD700>[玩家→管理]</color> <color=white>{m.PlayerName}</color>: {m.Message}");
+                    }
+                    display = $"<size=16>{string.Join("\n", msgParts)}</size>";
                 }
 
-                _isShowingOverflow = false;
-
-                var msgParts = new List<string>();
-                for (int i = _currentMsgIndex; i < total; i++)
+                // 使用 HSM 持久Hint 展示，避免原生 ShowHint(8秒) 被 ExperiencePlugin 的 HSM 提示系统
+                // 覆盖/短暂显示导致管理员看不到 AC 消息。放在屏幕中部上方(Y=200)独立层，不与其它层重叠。
+                var hint = new HsmHint
                 {
-                    var m = AdminMessages[i];
-                    msgParts.Add($"<color=#FFD700>[玩家→管理]</color> <color=white>{m.PlayerName}</color>: {m.Message}");
-                }
-
-                string fullMsg = $"<size=16>{string.Join("\n", msgParts)}</size>";
-                if (unread > 1)
-                    fullMsg += $"\n<size=14><color=#AAAAAA>剩余{unread}条 • 自动轮播中</color></size>";
+                    Id = "ac_display",
+                    Text = display,
+                    FontSize = 16,
+                    YCoordinate = 200,
+                    Alignment = HintAlignment.Center
+                };
 
                 foreach (var p in Player.List)
                 {
-                    if (p != null && p.RemoteAdminAccess && !p.IsNpc)
-                        p.ShowHint(fullMsg, 8);
+                    if (p != null && p.RemoteAdminAccess && !p.IsNPC)
+                    {
+                        // HSM 同 Id 不替换不续期：先移除旧实例，避免消息叠加/重影
+                        var disp = PlayerDisplay.Get(p);
+                        disp.RemoveHint("ac_display");
+                        disp.ShowHint(hint, 60f);
+                    }
                 }
-
-                _currentMsgIndex = total;
             }
-            catch (Exception ex) { Log.Error($"管理消息轮播错误: {ex.Message}"); }
+            catch (Exception ex) { Log.Error($"管理消息显示错误: {ex.Message}"); }
+        }
+
+        private void CleanupOldMessages()
+        {
+            var cutoff = DateTime.Now.AddSeconds(-MessageLifetimeSeconds);
+            AdminMessages.RemoveAll(m => m.Time < cutoff);
+            while (AdminMessages.Count > MaxVisibleMessages)
+                AdminMessages.RemoveAt(0);
         }
 
         // ==================== 回合清理 ====================
@@ -314,7 +457,9 @@ namespace AntiTeamKillPlugin
             _teamKilledVictims.Clear();
             _killTime.Clear();
             _killedBy.Clear();
-            Log.Info("[反组杀] 新回合 → 组杀追踪已清空");
+            _tkCases.Clear();
+            _playerTkCase.Clear();
+            Log.Info("[反组杀] 新回合 → 组杀追踪/开庭案件已清空");
         }
     }
 }

@@ -11,7 +11,7 @@
 
 | 图标 | 插件 | 一句话说明 |
 |:----:|------|-----------|
-| ⭐ | **ExperiencePlugin** | 打怪升级！击杀/伤害得经验，自动升级加 Buff |
+| ⭐ | **ExperiencePlugin** | 打架升级！击杀/伤害得经验，自动升级加 Buff |
 | 💬 | **ChatPlugin** | 全体聊天、同阵营聊天、查看效果、生涯数据 |
 | 🧹 | **CleanupPlugin** | 自动清理地上太多掉落物，防止服务器卡顿 |
 | 🛡️ | **CommanderShieldPlugin** | NTF队长自动获得护盾，能抗伤害还能看剩余盾量 |

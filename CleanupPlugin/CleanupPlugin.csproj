@@ -14,9 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Exiled.API" Version="9.13.3" />
-    <PackageReference Include="Exiled.Events" Version="9.13.3" />
-    <PackageReference Include="Exiled.Loader" Version="9.13.3" />
+    <PackageReference Include="ExMod.Exiled" Version="9.13.3" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>

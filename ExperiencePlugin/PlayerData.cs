@@ -14,6 +14,11 @@ namespace ExperiencePlugin
         public string UserId { get; set; }
 
         /// <summary>
+        /// 玩家唯一UID（正整数，admin系统用于 lv3-6 权限管理）
+        /// </summary>
+        public int Uid { get; set; }
+
+        /// <summary>
         /// 玩家名称
         /// </summary>
         public string PlayerName { get; set; }
@@ -44,14 +49,50 @@ namespace ExperiencePlugin
         public int TotalDeaths { get; set; }
 
         /// <summary>
+        /// 积分（击杀+0.5，助攻+0.1）
+        /// </summary>
+        public float Points { get; set; }
+
+        /// <summary>
+        /// VIP等级: 0=无, 1=VIP, 2=SVIP
+        /// </summary>
+        public int VipLevel { get; set; }
+
+        /// <summary>
+        /// VIP过期时间 (DateTime.MinValue=未激活, DateTime.MaxValue=永久)
+        /// </summary>
+        public DateTime VipExpiry { get; set; }
+
+        /// <summary>
         /// 最后登录时间
         /// </summary>
         public DateTime LastLoginTime { get; set; }
 
         /// <summary>
+        /// 是否显示VIP/SVIP头衔（玩家可自行开关）
+        /// </summary>
+        public bool ShowVipTitle { get; set; } = true;
+
+        /// <summary>
+        /// 是否劳改中（强制D级、减速、必出硬币）
+        /// </summary>
+        public bool IsLaborReform { get; set; } = false;
+
+        // ===== SCP自选系统 =====
+        /// <summary>今日已使用SCP自选次数</summary>
+        public int ScpSelectUsedToday { get; set; }
+        /// <summary>SCP自选日期（yyyyMMdd，用于每日重置）</summary>
+        public string ScpSelectDate { get; set; } = string.Empty;
+
+        /// <summary>
         /// 创建时间
         /// </summary>
         public DateTime CreatedTime { get; set; }
+
+        /// <summary>
+        /// 玩家自定义聊天字体颜色（十六进制，如 #FFFFFF #FFD700 #55DD55）
+        /// </summary>
+        public string ChatColor { get; set; } = "#FFFFFF";
 
         /// <summary>
         /// 无参构造函数（用于反序列化）
@@ -98,12 +139,19 @@ namespace ExperiencePlugin
 
             // 检查是否升级
             int expNeeded = GetExpForNextLevel(baseExpPerLevel);
+
+            // 防御：每级所需经验必须>0，否则会死循环导致服务器卡死/崩溃（例如击杀SCP给巨额经验时触发）
+            if (expNeeded <= 0) return false;
+
+            int safety = 0; // 防止巨额经验导致循环次数过多而卡死
             while (Experience >= expNeeded)
             {
                 Experience -= expNeeded;
                 Level++;
                 leveledUp = true;
                 expNeeded = GetExpForNextLevel(baseExpPerLevel);
+                if (expNeeded <= 0) break;          // 防御死循环
+                if (++safety > 10000) break;        // 极端情况兜底，防止服务器卡死
             }
 
             return leveledUp;

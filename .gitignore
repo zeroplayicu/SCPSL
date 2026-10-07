@@ -21,3 +21,20 @@ Thumbs.db
 # Plugin binaries
 zeropl/
 
+# ===== 敏感/私有（2026-10-07 加固：绝不外传）=====
+服务器凭据.md
+远程配置/
+焚诀.txt
+Server-specific.txt
+对话记录_*.md
+
+# ===== 内部工作目录 =====
+.workbuddy/
+.codebuddy/
+.tools/
+.npm-cache/
+%ProgramData%/
+
+# ===== 临时产物 =====
+*.b64
+*_out.txt

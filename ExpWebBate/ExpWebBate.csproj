@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>ExpWebBate</RootNamespace>
+    <AssemblyName>ExpWebBate</AssemblyName>
+    <LangVersion>12</LangVersion>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <PropertyGroup>
+    <Version>1.0.0</Version>
+    <Description>ExperiencePlugin Web UI Beta</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ExMod.Exiled" Version="9.13.3" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="ExperiencePlugin">
+      <HintPath>..\zeropl\ex\ExperiencePlugin.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

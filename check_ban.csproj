@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net48</TargetFramework><LangVersion>12</LangVersion></PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Exiled.API"><HintPath>C:\Users\Administrator\Desktop\SCPSL pulint\zeropl\ex\Exiled.API.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>

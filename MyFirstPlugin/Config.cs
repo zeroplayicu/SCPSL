@@ -16,6 +16,9 @@ namespace MyFirstPlugin
         [Description("插件是否启用")]
         public bool IsEnabled { get; set; } = true;
 
+        [Description("是否启用调试模式")]
+        public bool Debug { get; set; } = false;
+
         /// <summary>
         /// 是否启用调试模式
         /// 调试模式会输出更多日志信息

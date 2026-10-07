@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>Scp127Fix</RootNamespace>
+    <AssemblyName>Scp127Fix</AssemblyName>
+    <LangVersion>12</LangVersion>
+    <Nullable>disable</Nullable>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+  <PropertyGroup>
+    <Version>1.0.0</Version>
+    <Description>修复 SCP-127 掉落物导致的柜子每帧异常重试刷屏</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ExMod.Exiled" Version="9.13.3" />
+    <Reference Include="0Harmony">
+      <HintPath>..\zeropl\ex\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

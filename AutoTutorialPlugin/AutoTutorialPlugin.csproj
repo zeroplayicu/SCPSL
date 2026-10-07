@@ -2,11 +2,14 @@
 
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
-    <AssemblyName>CommanderShieldPlugin</AssemblyName>
-    <RootNamespace>CommanderShieldPlugin</RootNamespace>
-    <Version>2.0.0</Version>
+    <AssemblyName>AutoTutorialPlugin</AssemblyName>
+    <RootNamespace>AutoTutorialPlugin</RootNamespace>
+    <Version>1.0.0</Version>
     <Authors>Developer</Authors>
-    <Description>NTF指挥官量子护盾 - O5卡 + 50AHP + 100HS + 实时HUD显示</Description>
+    <Company>SCPServer</Company>
+    <Product>SCP Secret Laboratory Auto Tutorial Plugin</Product>
+    <Description>玩家进入游戏自动变教程角色；准备倒计时少于3秒时变观察者</Description>
+    <Copyright>Copyright 2026</Copyright>
     <OutputType>Library</OutputType>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <LangVersion>12.0</LangVersion>
@@ -14,9 +17,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Exiled.API" Version="9.13.3" />
-    <PackageReference Include="Exiled.Events" Version="9.13.3" />
-    <PackageReference Include="Exiled.Loader" Version="9.13.3" />
+    <PackageReference Include="ExMod.Exiled" Version="9.13.3" />
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>

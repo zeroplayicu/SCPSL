@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Exiled.Events.EventArgs.Player;
 using Exiled.Events.EventArgs.Server;
 using Exiled.API.Features;
@@ -27,8 +27,7 @@ namespace MyFirstPlugin
 
             player.Broadcast(
                 plugin.Config.WelcomeDuration,
-                $"<color=yellow><b>{plugin.Config.WelcomeMessage}</b></color>\n" +
-                $"<color=gray>服务器地址: 您的服务器IP</color>",
+                $"<color=yellow><b>{plugin.Config.WelcomeMessage}</b></color>",
                 Broadcast.BroadcastFlags.Normal
             );
 
@@ -38,7 +37,7 @@ namespace MyFirstPlugin
         public void OnRoundStarted()
         {
             Log.Info("========================================");
-            Log.Info($"回合 #{Round.CurrentRound} 已开始！");
+            Log.Info($"回合 #{Round.UptimeRounds} 已开始！");
             Log.Info($"当前玩家数: {Player.Dictionary.Count}");
             Log.Info("========================================");
 
@@ -57,7 +56,7 @@ namespace MyFirstPlugin
 
         public void OnPlayerDied(DiedEventArgs ev)
         {
-            Player player = ev.Target;
+            Player player = ev.Player;
 
             string attackerInfo = ev.Attacker != null
                 ? $" 被 {ev.Attacker.Nickname} 击杀"

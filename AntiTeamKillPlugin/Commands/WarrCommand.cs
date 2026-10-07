@@ -62,7 +62,9 @@ namespace AntiTeamKillPlugin.Commands
                     for (int i = 0; i < tutorials.Count; i++)
                     {
                         var t = tutorials[i];
-                        string code = t.UserId.Length >= 4 ? t.UserId.Substring(t.UserId.Length - 4) : t.UserId;
+                        // 取 @ 前的数字ID末4位作为编码（原直接取 UserId 末4位 = "team"，所有玩家编码相同）
+                        string idPart = t.UserId.Split('@')[0];
+                        string code = idPart.Length >= 4 ? idPart.Substring(idPart.Length - 4) : idPart;
                         int warns = handler.GetTotalWarnings(t.UserId);
                         sb.AppendLine($"<color=white>{i + 1}. {t.Nickname}</color> <color=#AAAAAA>编码:{code} 警告:{warns}</color>");
                     }
@@ -75,7 +77,10 @@ namespace AntiTeamKillPlugin.Commands
                     string code = arguments.At(1).ToLower();
                     var tutorials = handler.GetTutorialPlayers();
                     var target = tutorials.FirstOrDefault(t =>
-                        t.UserId.Length >= 4 && t.UserId.Substring(t.UserId.Length - 4).ToLower() == code);
+                    {
+                        string idPart = t.UserId.Split('@')[0];
+                        return idPart.Length >= 4 && idPart.Substring(idPart.Length - 4).ToLower() == code;
+                    });
 
                     if (target == null)
                     {

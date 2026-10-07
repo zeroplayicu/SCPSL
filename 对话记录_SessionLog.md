@@ -78,3 +78,41 @@ DLL放入: `%AppData%\EXILED\Plugins\`
 
 ## ⚠️ 变更记录
 - 2026-05-22: 全部插件从 LabAPI 1.1.6.1 迁移至 ExMod.Exiled 9.13.3
+
+
+---
+
+## 2026-05-24 更新 - 环境搭建 + 全部编译
+
+### 环境
+- .NET 8.0 SDK (8.0.421) + .NET Framework 4.8.1 DevPack
+- 创建 SCPSLPlugins.sln + Directory.Build.props
+- NuGet: .csproj 改为 ExMod.Exiled 9.13.3
+
+### API 适配 (EXILED 9.13.3)
+- Target -> Player / IsNpc -> IsNPC / DisplayName -> Nickname
+- Delete() -> Destroy() / CurrentRound -> UptimeRounds
+- IConfig 新增 Debug / ItemType -> AmmoType
+
+### 结果
+- 6 插件全部编译成功 0 错误 0 警告
+- DLL 输出到 zeropl/ex/
+- 服务端: L:\\SteamLibrary\\steamapps\\common\\SCP Secret Laboratory Dedicated Server
+
+
+---
+
+## 2026-05-24 阵营插件开发
+
+### 删除
+- CommanderShieldPlugin (被FactionPlugin替代)
+
+### 新增: FactionPlugin (31 KB, 0错误)
+
+**设施主管**: NTF指挥官皮, E11-SR 62/52/42/35伤害, 广播室技能呼叫快反
+**GOC小队(6人)**: 指挥官+重装+先锋+士兵×3, CASSIE入场, 限制MTF一波
+**撤离系统**: 撤离→观察者+1000XP (读取ExperiencePlugin数据)
+**命令**: .qt / .goc / .skill(.jn) / js sszg
+
+### zeropl/ex 当前DLL
+AntiTeamKill(22.5K) Chat(23K) Cleanup(11K) Experience(41.5K) Faction(31K) MyFirst(11K)

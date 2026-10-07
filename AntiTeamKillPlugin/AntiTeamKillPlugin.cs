@@ -1,6 +1,7 @@
 using System;
-using System.Timers;
+using System.Collections.Generic;
 using Exiled.API.Features;
+using MEC;
 
 namespace AntiTeamKillPlugin
 {
@@ -9,7 +10,7 @@ namespace AntiTeamKillPlugin
         public static AntiTeamKillPlugin Instance { get; private set; }
         public AntiTeamKillEventHandler EventHandler { get; private set; }
 
-        private Timer _adminMsgTimer;
+        private CoroutineHandle _adminMsgCoroutine;
 
         public override string Name => "AntiTeamKillPlugin";
         public override string Author => "Developer";
@@ -20,14 +21,12 @@ namespace AntiTeamKillPlugin
             Instance = this;
             EventHandler = new AntiTeamKillEventHandler();
 
-            Exiled.Events.Handlers.Player.Hurt += EventHandler.OnHurt;
+            Exiled.Events.Handlers.Player.Hurting += EventHandler.OnHurting;
             Exiled.Events.Handlers.Player.Died += EventHandler.OnDied;
             Exiled.Events.Handlers.Server.RoundStarted += EventHandler.OnRoundStarted;
 
-            _adminMsgTimer = new Timer(8000);
-            _adminMsgTimer.Elapsed += (_, _) => EventHandler.ShowNextAdminMessage();
-            _adminMsgTimer.AutoReset = true;
-            _adminMsgTimer.Start();
+            // MEC 协程替代 System.Timers.Timer：主线程执行，避免跨线程摸 Unity API
+            _adminMsgCoroutine = Timing.RunCoroutine(AdminMsgRoutine());
 
             Log.Info($"{Name} v{Version} 加载完成 - 反组杀/警告系统/.AC管理沟通");
 
@@ -36,10 +35,9 @@ namespace AntiTeamKillPlugin
 
         public override void OnDisabled()
         {
-            _adminMsgTimer?.Stop();
-            _adminMsgTimer?.Dispose();
+            Timing.KillCoroutines(_adminMsgCoroutine);
 
-            Exiled.Events.Handlers.Player.Hurt -= EventHandler.OnHurt;
+            Exiled.Events.Handlers.Player.Hurting -= EventHandler.OnHurting;
             Exiled.Events.Handlers.Player.Died -= EventHandler.OnDied;
             Exiled.Events.Handlers.Server.RoundStarted -= EventHandler.OnRoundStarted;
 
@@ -48,6 +46,15 @@ namespace AntiTeamKillPlugin
             Instance = null;
 
             base.OnDisabled();
+        }
+
+        private IEnumerator<float> AdminMsgRoutine()
+        {
+            while (true)
+            {
+                yield return Timing.WaitForSeconds(8f);
+                EventHandler?.RefreshAdminDisplay();
+            }
         }
     }
 }
